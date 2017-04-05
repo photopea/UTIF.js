@@ -3,6 +3,7 @@ A small, fast and advanced TIFF decoder. It is the main TIFF decoder for [Photop
 
 * Supports Black & White, Grayscale, RGB and Paletted images
 * Supports Fax 3 and Fax 4 (CCITT), LZW, PackBits and other compressions
+* E.g. [this 8 MPix image](//www.photopea.com/api/img/G4.TIF) with Fax 4 compression has just 56 kB ( [Open in Photopea](https://www.photopea.com?p=%7B%22files%22:%5B%22//www.photopea.com/api/img/G4.TIF%22%5D%7D) )
 
 #### `UTIF.decode(buffer)`
 * `buffer`: ArrayBuffer containing the TIFF file
