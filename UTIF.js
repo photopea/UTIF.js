@@ -94,8 +94,7 @@ UTIF.decode = function(buff)
 		}
 		img.data = new Uint8Array(bytes.buffer, 0, bilen>>3);
 	}
-	if(ifds.length>1) console.log("Multiple layers in a TIFF file!", ifds.length);
-	return ifds[0];
+	return ifds;
 }
 
 UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff)
