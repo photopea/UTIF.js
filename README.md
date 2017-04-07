@@ -7,7 +7,7 @@ A small, fast and advanced TIFF decoder. It is the main TIFF decoder for [Photop
 
 #### `UTIF.decode(buffer)`
 * `buffer`: ArrayBuffer containing the TIFF file
-* returns an image object with following properties:
+* returns an array of "images" ("layers", "pages"). Each element of this array is an object with following properties:
 * * `width`: the width of the image
 * * `height`: the height of the image
 * * `data`: pixel data of the image
@@ -19,6 +19,19 @@ TIFF files may have different number of channels and different color depth. The 
 * `img`: TIFF image object (returned by UTIF.decode())
 * returns Uint8Array of the image in RGBA format, 8 bits per channel (ready to use in ctx.putImageData() etc.)
 
+## Example
+
+```javascript
+function imgLoaded(buff) {
+  var pages = UTIF.decode(buff);
+  var rgba = UTIF.toRGBA8(pages[0]);  // Uint8Array with RGBA pixels
+}
+
+var xhr = new XMLHttpRequest();
+xhr.open("GET", "my_image.tif");
+xhr.responseType = "arraybuffer";
+xhr.onload = imgLoaded;   xhr.send();
+```
 
 ## Encoding TIFF images
 
