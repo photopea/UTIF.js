@@ -10,7 +10,7 @@ A small, fast and advanced TIFF decoder. It is the main TIFF decoder for [Photop
 * returns an array of "images" ("layers", "pages"). Each element of this array is an object with following properties:
 * * `width`: the width of the image
 * * `height`: the height of the image
-* * `data`: decompressed pixel data of the image (not necessary RGBA, not necessary 8 bits per channel)
+* * `data`: decompressed pixel data of the image
 * * `tXYZ`: other TIFF tags
 
 TIFF files may have different number of channels and different color depth. The interpretation of `data` depends on many tags (see the [TIFF 6 specification](http://www.npes.org/pdf/TIFF-v6.pdf)).
