@@ -23,8 +23,8 @@ TIFF files may have different number of channels and different color depth. The 
 
 ```javascript
 function imgLoaded(buff) {
-  var pages = UTIF.decode(buff);
-  var rgba = UTIF.toRGBA8(pages[0]);  // Uint8Array with RGBA pixels
+  var pages = UTIF.decode(buff);   console.log(pages[0]);
+  var rgba  = UTIF.toRGBA8(pages[0]);  // Uint8Array with RGBA pixels
 }
 
 var xhr = new XMLHttpRequest();
