@@ -54,6 +54,7 @@ UTIF.decode = function(buff)
 		if(ifdo==0) break;
 	}
 	
+	
 	for(var ii=0; ii<ifds.length; ii++)
 	{
 		var img = ifds[ii];
@@ -61,11 +62,13 @@ UTIF.decode = function(buff)
 		img.height = img["t257"][0];  delete img["t257"];
 		
 		var cmpr = img["t259"][0];  delete img["t259"];
+		var fo = img["t266"] ? img["t266"][0] : 1;  delete img["t266"];
 		if(img["t284"] && img["t284"][0]==2) console.log("PlanarConriguration 2 should not be used!");
 		
 		var bipp = img["t258"][0] * img["t277"][0];  // bits per pixel
 		var soff = img["t273"], bcnt = img["t279"];		if(bcnt==null) bcnt = [(img.height*img.width*bipp)>>3];
 		var bytes = new Uint8Array((img.width*img.height*bipp)>>3), bilen = 0;
+		//  000011010011
 		
 		if(img["t322"]!=null) // tiled
 		{
@@ -77,7 +80,7 @@ UTIF.decode = function(buff)
 				for(var x=0; x<tx; x++)
 				{
 					var i = y*tx+x;  GR.set(tbuff, 0);
-					UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, tbuff, 0);
+					UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, tbuff, 0, fo);
 					UTIF._copyTile(tbuff, (tw*bipp)>>3, th, bytes, (img.width*bipp)>>3, img.height, (x*tw*bipp)>>3, y*th);
 				}
 			bilen = bytes.length<<3;
@@ -87,7 +90,7 @@ UTIF.decode = function(buff)
 			var rps = img["t278"] ? img["t278"][0] : img.height;   rps = Math.min(rps, img.height);
 			for(var i=0; i<soff.length; i++)
 			{
-				UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, bytes, bilen>>3);
+				UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, bytes, bilen>>3, fo);
 				bilen += (img.width * bipp * rps);
 			}
 			bilen = Math.min(bilen, bytes.length<<3);
@@ -97,16 +100,16 @@ UTIF.decode = function(buff)
 	return ifds;
 }
 
-UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff)
+UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  // fill order
 {
 	if(false) {}
 	else if(cmpr==1) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
-	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width);
-	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width);
+	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo);
+	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
 	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  console.log(bin.length); for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff); 
-	else if(cmpr==32809) UTIF.decode._decodeThunder(data, off, len, tgt, toff);
+	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
 	else console.log("Unknown compression", cmpr);
 	
 	if(img["t317"] && img["t317"][0]==2) 
@@ -173,17 +176,20 @@ UTIF.decode._lens = ( function() {
 	addKeys(lensB, termB, 0, 1);  addKeys(lensB, makeB, 64,64);  addKeys(lensB, makeA, 1792,64);
 	return [lensW, lensB];    } )();
 
-UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w)
+UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w, fo)
 {
-	var U = UTIF.decode, boff=off<<3, len=0, wrd="";
+	var U = UTIF.decode, boff=off<<3, len=0, wrd="";	// previous starts with 1
 	var line=[], pline=[];  for(var i=0; i<w; i++) pline.push(0);  pline=U._makeDiff(pline);
 	var a0=0, a1=0, a2=0, b1=0, b2=0, clr=0;
 	var y=0, mode="", toRead=0;
+	
 	while((boff>>3)<off+slen)
 	{
-		b1 = U._findDiff(pline, a0+1, 1-clr), b2 = U._findDiff(pline, b1, clr);	// could be precomputed
-		var bit = (data[boff>>3]>>((boff&7)))&1;  boff++;  wrd+=bit;  
-		
+		b1 = U._findDiff(pline, a0+(a0==0?0:1), 1-clr), b2 = U._findDiff(pline, b1, clr);	// could be precomputed
+		var bit =0;
+		if(fo==1) bit = (data[boff>>3]>>(7-(boff&7)))&1; 
+		if(fo==2) bit = (data[boff>>3]>>(  (boff&7)))&1;  
+		boff++;  wrd+=bit; 
 		if(mode=="H") {
 			if(U._lens[clr][wrd]!=null) {  
 				var dl=U._lens[clr][wrd];  wrd="";  len+=dl;  
@@ -199,16 +205,18 @@ UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w)
 			U._writeBits(line, tgt, toff*8+y*w);
 			clr=0;  y++;  a0=0;
 			pline=U._makeDiff(line);  line=[];
-		}
+		} 
+		//if(wrd.length>150) {  console.log(wrd);  break;  throw "e";  }
 	}
 }
 
 UTIF.decode._findDiff = function(line, x, clr) {  for(var i=0; i<line.length; i+=2) if(line[i]>=x && line[i+1]==clr)  return line[i];  }
 UTIF.decode._makeDiff = function(line) {
-	var out = [];  for(var i=0; i<line.length; i++) if(i>0 && line[i-1]!=line[i]) out.push(i, line[i]);
+	var out = [];  if(line[0]==1) out.push(0,1);
+	for(var i=1; i<line.length; i++) if(line[i-1]!=line[i]) out.push(i, line[i]);
 	out.push(line.length,0,line.length,1);  return out;
 }
-UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w)
+UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 {
 	var U = UTIF.decode, boff=off<<3, len=0, wrd="";
 	var line=[], pline=[];  for(var i=0; i<w; i++) line.push(0);
@@ -216,9 +224,11 @@ UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w)
 	var y=-1, mode="", toRead=0, is1D=false;
 	while((boff>>3)<off+slen)
 	{
-		b1 = U._findDiff(pline, a0+1, 1-clr), b2 = U._findDiff(pline, b1, clr);	// could be precomputed
-		var bit = (data[boff>>3]>>((boff&7)))&1;  boff++;  wrd+=bit;  
-		if((boff>>3)>=data.length) throw "e";
+		b1 = U._findDiff(pline, a0+(a0==0?0:1), 1-clr), b2 = U._findDiff(pline, b1, clr);	// could be precomputed
+		var bit =0;
+		if(fo==1) bit = (data[boff>>3]>>(7-(boff&7)))&1; 
+		if(fo==2) bit = (data[boff>>3]>>(  (boff&7)))&1;  
+		boff++;  wrd+=bit; 
 		
 		if(is1D) {
 			if(U._lens[clr][wrd]!=null) { 
