@@ -201,7 +201,7 @@ UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w, fo)
 			if(wrd=="001" )  {  wrd="";  mode="H";  toRead=2;  }
 			if(U._dmap[wrd]!=null) {  a1 = b1+U._dmap[wrd];  U._addNtimes(line, a1-a0, clr);  a0=a1;  wrd="";  clr=1-clr;  }
 		}
-		if(line.length==w) { 
+		if(line.length==w && mode=="") { 
 			U._writeBits(line, tgt, toff*8+y*w);
 			clr=0;  y++;  a0=0;
 			pline=U._makeDiff(line);  line=[];
