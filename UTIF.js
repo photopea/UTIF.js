@@ -1,6 +1,11 @@
 
 
 var UTIF = {};
+var log = function() {
+	if (process && process.env && process.env.NODE_ENV === 'development') {
+		console.log.apply(null, arguments);
+	}
+};
 
 UTIF.toRGBA8 = function(out)
 {
@@ -62,7 +67,7 @@ UTIF.decode = function(buff)
 		
 		var cmpr = img["t259"][0];  delete img["t259"];
 		var fo = img["t266"] ? img["t266"][0] : 1;  delete img["t266"];
-		if(img["t284"] && img["t284"][0]==2) console.log("PlanarConriguration 2 should not be used!");
+		if(img["t284"] && img["t284"][0]==2) log("PlanarConriguration 2 should not be used!");
 		
 		var bipp = img["t258"][0] * img["t277"][0];  // bits per pixel
 		var soff = img["t273"], bcnt = img["t279"];		if(bcnt==null) bcnt = [(img.height*img.width*bipp)>>3];
@@ -106,10 +111,10 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
-	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  console.log(bin.length); for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
+	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  log(bin.length); for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff); 
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
-	else console.log("Unknown compression", cmpr);
+	else log("Unknown compression", cmpr);
 	
 	if(img["t317"] && img["t317"][0]==2) 
 	{	
@@ -277,7 +282,7 @@ UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 	{
 		v = (data[boff>>3]<<16) | (data[(boff+8)>>3]<<8) | data[(boff+16)>>3];
 		Code = ( v>>(24-(boff&7)-bits) )    &   ((1<<bits)-1);  boff+=bits;
-		if(tab.length==0 && Code!=ClearCode) {  console.log("Error in LZW");  return;  }
+		if(tab.length==0 && Code!=ClearCode) {  log("Error in LZW");  return;  }
 		
 		if(Code==EoiCode) break;
 		if(Code==ClearCode) {
@@ -335,7 +340,7 @@ UTIF.decode._readIFD = function(bin, data, offset, ifds)
 		if(type==3) {  for(var j=0; j<num; j++) arr.push(bin.readUshort(data, (num<3 ? offset-4 : voff)+2*j));  }
 		if(type==4) {  for(var j=0; j<num; j++) arr.push(bin.readUint  (data, (num<2 ? offset-4 : voff)+4*j));  }
 		if(type==5) {  for(var j=0; j<num; j++) arr.push(bin.readUint(data, voff+j*8) / bin.readUint(data,voff+j*8+4));  }
-		if(arr.length==0) console.log("unknown TIFF tag type: ", type, "num:",num);
+		if(arr.length==0) log("unknown TIFF tag type: ", type, "num:",num);
 	}
 	return offset;
 }
