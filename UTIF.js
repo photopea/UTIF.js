@@ -8,7 +8,6 @@ UTIF.toRGBA8 = function(out)
 	var img = new Uint8Array(area*4);
 	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask
 	var intp = out["t262"][0], bps = out["t258"][0];
-	//console.log("interpretation: ", intp, bps);
 	
 	if(intp==0) {
 		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-(i&7)))&1;  img[qi]=img[qi+1]=img[qi+2]=(1-px)*255;  img[qi+3]=255;    }
@@ -206,7 +205,6 @@ UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w, fo)
 			clr=0;  y++;  a0=0;
 			pline=U._makeDiff(line);  line=[];
 		} 
-		//if(wrd.length>150) {  console.log(wrd);  break;  throw "e";  }
 	}
 }
 
@@ -254,7 +252,6 @@ UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 			is1D = ((data[boff>>3]>>((boff&7)))&1)==1;  boff++;
 			if(U._decodeG3.allow2D==null) U._decodeG3.allow2D=is1D;
 			if(!U._decodeG3.allow2D) {  is1D = true;  boff--;  }
-			//console.log("EOL",y, "next 1D:", is1D);
 			wrd="";  clr=0;  y++;  a0=0;
 			pline=U._makeDiff(line);  line=[];
 		}
@@ -339,7 +336,6 @@ UTIF.decode._readIFD = function(bin, data, offset, ifds)
 		if(type==4) {  for(var j=0; j<num; j++) arr.push(bin.readUint  (data, (num<2 ? offset-4 : voff)+4*j));  }
 		if(type==5) {  for(var j=0; j<num; j++) arr.push(bin.readUint(data, voff+j*8) / bin.readUint(data,voff+j*8+4));  }
 		if(arr.length==0) console.log("unknown TIFF tag type: ", type, "num:",num);
-		//console.log(tag, type, arr, UTIF.tags[tag]);
 	}
 	return offset;
 }
