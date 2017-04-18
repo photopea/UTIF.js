@@ -1,5 +1,3 @@
-
-
 var UTIF = {};
 
 UTIF.toRGBA8 = function(out)
@@ -366,4 +364,9 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 			var tx = xoff+x, ty = yoff+y;
 			if(tx<w && ty<h) b[ty*w+tx] = tb[y*tw+x];
 		}
+}
+
+// Make available for import by `require()`
+if (typeof module === 'object') {
+	module.exports = UTIF;
 }
