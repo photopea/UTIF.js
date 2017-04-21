@@ -1,64 +1,5 @@
 var UTIF = {};
 
-UTIF.replaceIMG = function()
-{
-	var imgs = document.getElementsByTagName("img");
-	for (var i=0; i<imgs.length; i++) {
-		var img=imgs[i], src=img.getAttribute("src"), suff=src.split(".").pop().toLowerCase();
-		if(suff!="tif" && suff!="tiff") continue;
-		var xhr = new XMLHttpRequest();  UTIF._xhrs.push(xhr);  UTIF._imgs.push(img);
-		xhr.open("GET", src);  xhr.responseType = "arraybuffer";
-		xhr.onload = UTIF._imgLoaded;   xhr.send();
-	}
-}
-UTIF._xhrs = [];  UTIF._imgs = [];
-UTIF._imgLoaded = function(e)
-{
-	var page = UTIF.decode(e.target.response)[0], rgba = UTIF.toRGBA8(page), w=page.width, h=page.height;
-	var ind = UTIF._xhrs.indexOf(e.target), img = UTIF._imgs[ind];  
-	UTIF._xhrs.splice(ind,1);  UTIF._imgs.splice(ind,1);
-	var cnv = document.createElement("canvas");  cnv.width=w;  cnv.height=h;
-	var ctx = cnv.getContext("2d"), imgd = ctx.createImageData(w,h);
-	for(var i=0; i<rgba.length; i++) imgd.data[i]=rgba[i];       ctx.putImageData(imgd,0,0);
-	var attr = ["style","class","id"];
-	for(var i=0; i<attr.length; i++) cnv.setAttribute(attr[i], img.getAttribute(attr[i]));
-	img.parentNode.replaceChild(cnv,img);
-}
-
-UTIF.toRGBA8 = function(out)
-{
-	var w = out.width, h = out.height, area = w*h, qarea = area*4, data = out.data;
-	var img = new Uint8Array(area*4);
-	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask
-	var intp = out["t262"][0], bps = out["t258"][0];
-	//console.log("interpretation: ", intp, bps);
-	
-	if(intp==0) {
-		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-(i&7)))&1;  img[qi]=img[qi+1]=img[qi+2]=(1-px)*255;  img[qi+3]=255;    }
-		if(bps== 4) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>1])>>(4-4*(i&1)))&15;  img[qi]=img[qi+1]=img[qi+2]=(15-px)*17;  img[qi+3]=255;    }
-		if(bps== 8) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[i];  img[qi]=img[qi+1]=img[qi+2]=255-px;  img[qi+3]=255;    }
-	}
-	if(intp==1) {
-		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-  (i&7)))&1;    img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
-		if(bps== 2) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>2])>>(6-2*(i&3)))&3;  img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
-		if(bps== 8) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[i];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
-		if(bps==16) for(var i=0; i<area; i++) {  var qi=i<<2, px=(Math.max(0,data[2*i+1]-5)<<8)|data[2*i];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
-	}	
-	if(intp==2) {
-		if(bps== 8) {
-			if(out["t338"] && out["t338"][0]==1) for(var i=0; i<qarea; i++) img[i] = data[i];
-			else for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*3;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }  }
-		else 
-			for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*6;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=255;    } 
-	}
-	if(intp==3) 
-	{
-		var map = out["t320"];
-		for(var i=0; i<area; i++) {  var qi=i<<2, mi=data[i];  img[qi]=(map[mi]>>8);  img[qi+1]=(map[256+mi]>>8);  img[qi+2]=(map[512+mi]>>8);  img[qi+3]=255;    }
-	}	
-	return img;
-}
-
 UTIF.decode = function(buff)
 {
 	UTIF.decode._decodeG3.allow2D = null;
@@ -77,7 +18,6 @@ UTIF.decode = function(buff)
 		if(ifdo==0) break;
 	}
 	
-	
 	for(var ii=0; ii<ifds.length; ii++)
 	{
 		var img = ifds[ii];
@@ -88,10 +28,15 @@ UTIF.decode = function(buff)
 		var fo = img["t266"] ? img["t266"][0] : 1;  delete img["t266"];
 		if(img["t284"] && img["t284"][0]==2) console.log("PlanarConriguration 2 should not be used!");
 		
-		var bipp = img["t258"][0] * img["t277"][0];  // bits per pixel
-		var soff = img["t273"], bcnt = img["t279"];		if(bcnt==null) bcnt = [(img.height*img.width*bipp)>>3];
+		var bipp = (img["t258"]?img["t258"][0]:1) * (img["t277"]?img["t277"][0]:1);  // bits per pixel
+		var soff = img["t273"];  if(soff==null) soff = img["t324"];
+		var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [(img.height*img.width*bipp)>>3];  if(bcnt==null) bcnt = img["t325"];
 		var bytes = new Uint8Array((img.width*img.height*bipp)>>3), bilen = 0;
-		//  000011010011
+		
+		var ext = FMTS.getExtByFile(new Uint8Array(data.buffer, 8));
+		if(ext=="jpg") {
+			
+		}
 		
 		if(img["t322"]!=null) // tiled
 		{
@@ -137,12 +82,10 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	
 	if(img["t317"] && img["t317"][0]==2) 
 	{	
-		var noc = img["t277"], olen = img.width*(img["t278"] ? img["t278"][0] : img.height)*noc;
-		if     (noc==1)  for(var j=1; j<olen; j++ )  tgt[toff+j] = (tgt[toff+j-1] + tgt[toff+j])&255; 
-		else if(noc==3)  for(var j=3; j<olen; j+=3)  {  
-			tgt[toff+j+0] = (tgt[toff+j-3] + tgt[toff+j+0])&255; 
-			tgt[toff+j+1] = (tgt[toff+j-2] + tgt[toff+j+1])&255; 
-			tgt[toff+j+2] = (tgt[toff+j-1] + tgt[toff+j+2])&255; 
+		var noc = (img["t277"]?img["t277"][0]:1), h = (img["t278"] ? img["t278"][0] : img.height), bpr = img.width*noc;
+		for(var y=0; y<h; y++) {
+			var ntoff = toff+y*bpr;
+			for(var j=noc; j<bpr; j++) tgt[ntoff+j] = (tgt[ntoff+j] + tgt[ntoff+j-noc])&255; 
 		}
 	}
 }
@@ -338,9 +281,9 @@ UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 UTIF.tags = {254:"NewSubfileType",255:"SubfileType",256:"ImageWidth",257:"ImageLength",258:"BitsPerSample",259:"Compression",262:"PhotometricInterpretation",266:"FillOrder",
 			 269:"DocumentName",270:"ImageDescription",271:"Make",272:"Model",273:"StripOffset",274:"Orientation",277:"SamplesPerPixel",278:"RowsPerStrip",
 			 279:"StripByteCounts",280:"MinSampleValue",281:"MaxSampleValue",282:"XResolution",283:"YResolution",284:"PlanarConfiguration",286:"XPosition",287:"YPosition",
-			 292:"T4Options",296:"ResolutionUnit",297:"PageNumber",305:"Software",306:"DateTime",317:"Predictor",320:"ColorMap",321:"HalftoneHints",322:"TileWidth",
-			 323:"TileLength",324:"TileOffset",325:"TileByteCounts",338:"ExtraSample",339:"SampleFormat",
-			 512:"JPEGProc",513:"JPEGInterchangeFormat",519:"JPEGQTables",520:"JPEGDCTables",521:"JPEGACTables",
+			 292:"T4Options",296:"ResolutionUnit",297:"PageNumber",305:"Software",306:"DateTime",315:"Artist",317:"Predictor",320:"ColorMap",321:"HalftoneHints",322:"TileWidth",
+			 323:"TileLength",324:"TileOffset",325:"TileByteCounts",336:"DotRange",338:"ExtraSample",339:"SampleFormat",
+			 512:"JPEGProc",513:"JPEGInterchangeFormat",514:"JPEGInterchangeFormatLength",519:"JPEGQTables",520:"JPEGDCTables",521:"JPEGACTables",
 			 529:"YCbCrCoefficients",530:"YCbCrSubSampling",531:"YCbCrPositioning",532:"ReferenceBlackWhite",33432:"Copyright",34377:"Photoshop"};
 
 UTIF.decode._readIFD = function(bin, data, offset, ifds)
@@ -366,6 +309,72 @@ UTIF.decode._readIFD = function(bin, data, offset, ifds)
 	}
 	return offset;
 }
+
+UTIF.toRGBA8 = function(out)
+{
+	var w = out.width, h = out.height, area = w*h, qarea = area*4, data = out.data;
+	var img = new Uint8Array(area*4);
+	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask, 5: CMYK
+	var intp = out["t262"][0], bps = (out["t258"]?out["t258"][0]:1);
+	//console.log("interpretation: ", intp, "bps", bps);
+	if(intp==0) {
+		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-(i&7)))&1;  img[qi]=img[qi+1]=img[qi+2]=(1-px)*255;  img[qi+3]=255;    }
+		if(bps== 4) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>1])>>(4-4*(i&1)))&15;  img[qi]=img[qi+1]=img[qi+2]=(15-px)*17;  img[qi+3]=255;    }
+		if(bps== 8) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[i];  img[qi]=img[qi+1]=img[qi+2]=255-px;  img[qi+3]=255;    }
+	}
+	if(intp==1) {
+		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-  (i&7)))&1;    img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
+		if(bps== 2) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>2])>>(6-2*(i&3)))&3;  img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
+		if(bps== 8) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[i];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
+		if(bps==16) for(var i=0; i<area; i++) {  var qi=i<<2, px=(Math.max(0,data[2*i+1]-5)<<8)|data[2*i];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
+	}	
+	if(intp==2) {
+		if(bps== 8) {
+			if(out["t338"]) {
+				 if(out["t338"][0]==1) for(var i=0; i<qarea; i++) img[i] = data[i];
+				 else  for(var i=0; i<qarea; i+=4) {  img[i] = data[i];  img[i+1] = data[i+1];  img[i+2] = data[i+2];  img[i+3] = 255;  }
+			} 
+			else for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*3;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }  
+		}
+		else 
+			for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*6;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=255;    } 
+	}
+	if(intp==3) {
+		var map = out["t320"];
+		for(var i=0; i<area; i++) {  var qi=i<<2, mi=data[i];  img[qi]=(map[mi]>>8);  img[qi+1]=(map[256+mi]>>8);  img[qi+2]=(map[512+mi]>>8);  img[qi+3]=255;    }
+	}
+	if(intp==5) for(var i=0; i<area; i++) {  
+		var qi=i<<2;  var C=255-data[qi], M=255-data[qi+1], Y=255-data[qi+2], K=(255-data[qi+3])*(1/255);
+		img[qi]=Math.round(C*K);  img[qi+1]=Math.round(M*K);  img[qi+2]=Math.round(Y*K);  img[qi+3]=255;  
+	}  
+	return img;
+}
+
+UTIF.replaceIMG = function()
+{
+	var imgs = document.getElementsByTagName("img");
+	for (var i=0; i<imgs.length; i++) {
+		var img=imgs[i], src=img.getAttribute("src"), suff=src.split(".").pop().toLowerCase();
+		if(suff!="tif" && suff!="tiff") continue;
+		var xhr = new XMLHttpRequest();  UTIF._xhrs.push(xhr);  UTIF._imgs.push(img);
+		xhr.open("GET", src);  xhr.responseType = "arraybuffer";
+		xhr.onload = UTIF._imgLoaded;   xhr.send();
+	}
+}
+UTIF._xhrs = [];  UTIF._imgs = [];
+UTIF._imgLoaded = function(e)
+{
+	var page = UTIF.decode(e.target.response)[0], rgba = UTIF.toRGBA8(page), w=page.width, h=page.height;
+	var ind = UTIF._xhrs.indexOf(e.target), img = UTIF._imgs[ind];  
+	UTIF._xhrs.splice(ind,1);  UTIF._imgs.splice(ind,1);
+	var cnv = document.createElement("canvas");  cnv.width=w;  cnv.height=h;
+	var ctx = cnv.getContext("2d"), imgd = ctx.createImageData(w,h);
+	for(var i=0; i<rgba.length; i++) imgd.data[i]=rgba[i];       ctx.putImageData(imgd,0,0);
+	var attr = ["style","class","id"];
+	for(var i=0; i<attr.length; i++) cnv.setAttribute(attr[i], img.getAttribute(attr[i]));
+	img.parentNode.replaceChild(cnv,img);
+}
+
 
 UTIF._binBE = {
 	nextZero   : function(data, o) {  while(data[o]!=0) o++;  return o;  },
