@@ -33,11 +33,6 @@ UTIF.decode = function(buff)
 		var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [(img.height*img.width*bipp)>>3];  if(bcnt==null) bcnt = img["t325"];
 		var bytes = new Uint8Array((img.width*img.height*bipp)>>3), bilen = 0;
 		
-		var ext = FMTS.getExtByFile(new Uint8Array(data.buffer, 8));
-		if(ext=="jpg") {
-			
-		}
-		
 		if(img["t322"]!=null) // tiled
 		{
 			var tw = img["t322"][0], th = img["t323"][0];
