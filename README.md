@@ -19,6 +19,17 @@ TIFF files may have different number of channels and different color depth. The 
 * `img`: TIFF image object (returned by UTIF.decode())
 * returns Uint8Array of the image in RGBA format, 8 bits per channel (ready to use in ctx.putImageData() etc.)
 
+#### `UTIF.replaceIMG()`
+If you are not a programmer, you can use TIFF images directly inside IMG element of HTML. 
+```html
+<img src="image.tif" />  <img src="dog.tif" /> ...
+```
+Then it is enough to call `UTIF.replaceIMG()` once at some point. For example:
+```html
+<body onload="UTIF.replaceIMG()"> ...
+```
+And UTIF.js will do the rest. Internally, an Image elements will be replaced by a Canvas elements. The attributes "id", "class" and "style" will be copied from the original Image to the new Canvas. Use CSS to style such images.
+
 ## Example
 
 ```javascript
