@@ -1,5 +1,30 @@
 var UTIF = {};
 
+UTIF.replaceIMG = function()
+{
+	var imgs = document.getElementsByTagName("img");
+	for (var i=0; i<imgs.length; i++) {
+		var img=imgs[i], src=img.getAttribute("src"), suff=src.split(".").pop().toLowerCase();
+		if(suff!="tif" && suff!="TIFF") continue;
+		var xhr = new XMLHttpRequest();  UTIF._xhrs.push(xhr);  UTIF._imgs.push(img);
+		xhr.open("GET", src);  xhr.responseType = "arraybuffer";
+		xhr.onload = UTIF._imgLoaded;   xhr.send();
+	}
+}
+UTIF._xhrs = [];  UTIF._imgs = [];
+UTIF._imgLoaded = function(e)
+{
+	var page = UTIF.decode(e.target.response)[0], rgba = UTIF.toRGBA8(page), w=page.width, h=page.height;
+	var ind = UTIF._xhrs.indexOf(e.target), img = UTIF._imgs[ind];  
+	UTIF._xhrs.splice(ind,1);  UTIF._imgs.splice(ind,1);
+	var cnv = document.createElement("canvas");  cnv.width=w;  cnv.height=h;
+	var ctx = cnv.getContext("2d"), imgd = ctx.createImageData(w,h);
+	for(var i=0; i<rgba.length; i++) imgd.data[i]=rgba[i];       ctx.putImageData(imgd,0,0);
+	var attr = ["style","class","id"];
+	for(var i=0; i<attr.length; i++) cnv.setAttribute(attr[i], img.getAttribute(attr[i]));
+	img.parentNode.replaceChild(cnv,img);
+}
+
 UTIF.toRGBA8 = function(out)
 {
 	var w = out.width, h = out.height, area = w*h, qarea = area*4, data = out.data;
@@ -77,7 +102,7 @@ UTIF.decode = function(buff)
 			for(var y=0; y<ty; y++)
 				for(var x=0; x<tx; x++)
 				{
-					var i = y*tx+x;  GR.set(tbuff, 0);
+					var i = y*tx+x;  for(var j=0; j<tbuff.length; j++) tbuff[j]=0;
 					UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, tbuff, 0, fo);
 					UTIF._copyTile(tbuff, (tw*bipp)>>3, th, bytes, (img.width*bipp)>>3, img.height, (x*tw*bipp)>>3, y*th);
 				}
@@ -367,6 +392,4 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 }
 
 // Make available for import by `require()`
-if (typeof module === 'object') {
-	module.exports = UTIF;
-}
+if (typeof module == "object") module.exports = UTIF;
