@@ -18,6 +18,8 @@ UTIF.decode = function(buff)
 		if(ifdo==0) break;
 	}
 	
+	if(ifds[0]["t256"]==null) return ifds;	// EXIF files don't have TIFF tags
+	
 	for(var ii=0; ii<ifds.length; ii++)
 	{
 		var img = ifds[ii];
@@ -212,7 +214,9 @@ UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 		}
 		if(wrd.endsWith("000000000001")) { 	// needed for some files
 			if(y>=0) U._writeBits(line, tgt, toff*8+y*w);
-			is1D = ((data[boff>>3]>>((boff&7)))&1)==1;  boff++;
+			if(fo==1) is1D = ((data[boff>>3]>>(7-(boff&7)))&1)==1;  
+			if(fo==2) is1D = ((data[boff>>3]>>(  (boff&7)))&1)==1;  
+			boff++;
 			if(U._decodeG3.allow2D==null) U._decodeG3.allow2D=is1D;
 			if(!U._decodeG3.allow2D) {  is1D = true;  boff--;  }
 			//console.log("EOL",y, "next 1D:", is1D);
