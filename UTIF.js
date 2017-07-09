@@ -260,14 +260,15 @@ UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 		else if(Code<tab.length) {
 			for(var i=0; i<tab[Code].length; i++) tgt[toff+i] = tab[Code][i];
 			toff += tab[Code].length;
-				
-			var nit = tab[OldCode].slice(0);  nit.push(tab[Code][0]);
+			
+			// not sure about the following line ... can tab[OldCode] really be null?
+			var nit = tab[OldCode]==null ? [] : tab[OldCode].slice(0);  nit.push(tab[Code][0]);
 			tab.push(nit);  if(tab.length+1==(1<<bits)) bits++;
 				
 			OldCode = Code;
 		}
 		else {
-			var OutString = tab[OldCode].slice(0);  OutString.push(OutString[0]);
+			var OutString = tab[OldCode]==null ? [] : tab[OldCode].slice(0);  OutString.push(OutString[0]);
 			for(var i=0; i<OutString.length; i++) tgt[toff+i] = OutString[i];
 			toff += OutString.length;
 				
