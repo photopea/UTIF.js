@@ -45,7 +45,7 @@ xhr.onload = imgLoaded;   xhr.send();
 
 ## Encoding TIFF images
 
-You should not save images into TIFF format in the 21st century.
+You should not save images into TIFF format in the 21st century. Save it as PNG instead (e.g. using [UPNG.js](https://github.com/photopea/UPNG.js)).
 
 TIFF, just like many other formats, needs to store 16-bit and 32-bit integers. TIFF format does not have a fixed endianity, so every TIFF encoder should handle both Big and Little Endian files. It is just a little introduction into ugliness of this format.
 
