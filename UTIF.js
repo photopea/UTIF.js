@@ -1,5 +1,36 @@
 var UTIF = {};
 
+UTIF.encodeImage = function(rgba, w, h)
+{
+	var idf = { "t256":[w], "t257":[h], "t258":[8,8,8,8], "t259":[1], "t262":[2], "t273":[1000], // strips offset
+				"t277":[4], "t278":[h], /* rows per strip */          "t279":[w*h*4], // strip byte counts
+				"t282":[1], "t283":[1], "t284":[1], "t286":[0], "t287":[0], "t296":[1], "t305": ["Photopea (UTIF.js)"], "t338":[1]
+		};
+	var prfx = new Uint8Array(UTIF.encode([idf]));
+	var img = new Uint8Array(rgba);
+	var data = new Uint8Array(1000+w*h*4);
+	for(var i=0; i<prfx.length; i++) data[i] = prfx[i];
+	for(var i=0; i<img .length; i++) data[1000+i] = img[i];
+	return data.buffer;
+}
+
+UTIF.encode = function(ifds)
+{
+	var data = new Uint8Array(20000), offset = 4, bin = UTIF._binBE;
+	data[0]=77;  data[1]=77;  data[3]=42;
+	
+	var ifdo = 8;
+	bin.writeUint(data, offset, ifdo);  offset+=4;
+	for(var i=0; i<ifds.length; i++)
+	{
+		var noffs = UTIF._writeIFD(bin, data, ifdo, ifds[i]);
+		ifdo = noffs[1];
+		if(i<ifds.length-1) bin.writeUint(data, noffs[0], ifdo);
+	}
+	return data.slice(0, ifdo).buffer;
+}
+//UTIF.encode._writeIFD
+
 UTIF.decode = function(buff)
 {
 	UTIF.decode._decodeG3.allow2D = null;
@@ -7,13 +38,14 @@ UTIF.decode = function(buff)
 	
 	var id = UTIF._binBE.readASCII(data, offset, 2);  offset+=2;
 	var bin = id=="II" ? UTIF._binLE : UTIF._binBE;
-	var num = bin.readUshort(data, offset);  offset+=2
+	var num = bin.readUshort(data, offset);  offset+=2;
 	
 	var ifdo = bin.readUint(data, offset);  offset+=4;
 	var ifds = [];
 	while(true)
 	{
-		var noff = UTIF.decode._readIFD(bin, data, ifdo, ifds);
+		var noff = UTIF._readIFD(bin, data, ifdo, ifds);
+		//var ifd = ifds[ifds.length-1];   if(ifd["t34665"]) {  ifd.exifIFD = [];  UTIF._readIFD(bin, data, ifd["t34665"][0], ifd.exifIFD);  }
 		ifdo = bin.readUint(data, noff);
 		if(ifdo==0) break;
 	}
@@ -284,20 +316,21 @@ UTIF.tags = {254:"NewSubfileType",255:"SubfileType",256:"ImageWidth",257:"ImageL
 			 292:"T4Options",296:"ResolutionUnit",297:"PageNumber",305:"Software",306:"DateTime",315:"Artist",317:"Predictor",320:"ColorMap",321:"HalftoneHints",322:"TileWidth",
 			 323:"TileLength",324:"TileOffset",325:"TileByteCounts",336:"DotRange",338:"ExtraSample",339:"SampleFormat",
 			 512:"JPEGProc",513:"JPEGInterchangeFormat",514:"JPEGInterchangeFormatLength",519:"JPEGQTables",520:"JPEGDCTables",521:"JPEGACTables",
-			 529:"YCbCrCoefficients",530:"YCbCrSubSampling",531:"YCbCrPositioning",532:"ReferenceBlackWhite",33432:"Copyright",34377:"Photoshop"};
+			 529:"YCbCrCoefficients",530:"YCbCrSubSampling",531:"YCbCrPositioning",532:"ReferenceBlackWhite",33432:"Copyright",34377:"Photoshop"};		
 
-UTIF.decode._readIFD = function(bin, data, offset, ifds)
+			 UTIF.ttypes = {  256:3,257:3,258:3,   259:3, 262:3,  273:4,  274:3, 277:3,278:4,279:4, 282:5, 283:5, 284:3, 286:5,287:5, 296:3, 305:2, 306:2, 338:3, 513:4, 514:4, 34665:4  };			 
+
+UTIF._readIFD = function(bin, data, offset, ifds)
 {
 	var cnt = bin.readUshort(data, offset);  offset+=2;
 	var ifd = {};  ifds.push(ifd);
 	
-	for(var i=0; i<cnt; i++)
-	{
+	for(var i=0; i<cnt; i++) {
 		var tag  = bin.readUshort(data, offset);    offset+=2;
 		var type = bin.readUshort(data, offset);    offset+=2;
 		var num  = bin.readUint  (data, offset);    offset+=4;
 		var voff = bin.readUint  (data, offset);    offset+=4;
-		
+
 		var arr = ifd["t"+tag] = [];
 		if(type==1 || type==7) {  for(var j=0; j<num; j++) arr.push(data[(num<5 ? offset-4 : voff)+j]); }
 		if(type==2) {  arr.push( bin.readASCII(data, (num<5 ? offset-4 : voff), num-1) );  }
@@ -308,6 +341,35 @@ UTIF.decode._readIFD = function(bin, data, offset, ifds)
 		//console.log(tag, type, arr, UTIF.tags[tag]);
 	}
 	return offset;
+}
+UTIF._writeIFD = function(bin, data, offset, ifd)
+{
+	var keys = Object.keys(ifd);
+	bin.writeUshort(data, offset, keys.length);  offset+=2;
+	
+	var eoff = offset + keys.length*12 + 4;
+	
+	for(var ki=0; ki<keys.length; ki++) {
+		var key = keys[ki];
+		var tag = parseInt(key.slice(1)), type = UTIF.ttypes[tag];  if(type==null) throw "unknown type of tag: "+tag;
+		var val = ifd[key];  if(type==2) val=val[0]+"\u0000";  var num = val.length;
+		bin.writeUshort(data, offset, tag );  offset+=2;
+		bin.writeUshort(data, offset, type);  offset+=2;
+		bin.writeUint  (data, offset, num );  offset+=4;
+		
+		var dlen = [-1, 1,1,2,4,8][type] * num;
+		var toff = offset;
+		if(dlen>4) {  bin.writeUint(data, offset, eoff);  toff=eoff;  }
+		
+		if(type==2) {  bin.writeASCII(data, toff, val);   }
+		if(type==3) {  for(var i=0; i<num; i++) bin.writeUshort(data, toff+2*i, val[i]);    }
+		if(type==4) {  for(var i=0; i<num; i++) bin.writeUint  (data, toff+4*i, val[i]);    }
+		if(type==5) {  for(var i=0; i<num; i++) {  bin.writeUint(data, toff+8*i, Math.round(val[i]*10000));  bin.writeUint(data, toff+8*i+4, 10000);  }   }
+		
+		if(dlen>4) {  dlen += (dlen&1);  eoff += dlen;  }
+		offset += 4;
+	}
+	return [offset, eoff];
 }
 
 UTIF.toRGBA8 = function(out)
@@ -384,7 +446,11 @@ UTIF._binBE = {
 	nextZero   : function(data, o) {  while(data[o]!=0) o++;  return o;  },
 	readUshort : function(buff, p) {  return (buff[p]<< 8) |  buff[p+1];  },
 	readUint   : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+3];  a[1]=buff[p+2];  a[2]=buff[p+1];  a[3]=buff[p];  return UTIF._binBE.ui32[0];  },
-	readASCII  : function(buff, p, l) {  var s = "";   for(var i=0; i<l; i++) s += String.fromCharCode(buff[p+i]);   return s; }
+	readASCII  : function(buff, p, l) {  var s = "";   for(var i=0; i<l; i++) s += String.fromCharCode(buff[p+i]);   return s; },
+	
+	writeUshort: function(buff, p, n) {  buff[p] = (n>> 8)&255;  buff[p+1] =  n&255;  },
+	writeUint  : function(buff, p, n) {  buff[p] = (n>>24)&255;  buff[p+1] = (n>>16)&255;  buff[p+2] = (n>>8)&255;  buff[p+3] = (n>>0)&255;  },
+	writeASCII : function(buff, p, s) {  for(var i = 0; i < s.length; i++)  buff[p+i] = s.charCodeAt(i);  }
 }
 UTIF._binBE.ui8  = new Uint8Array(4);
 UTIF._binBE.ui32 = new Uint32Array(UTIF._binBE.ui8.buffer);
