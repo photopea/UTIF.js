@@ -1,5 +1,5 @@
 # UTIF.js
-A small, fast and advanced TIFF / EXIF decoder and encoder. It is the main TIFF decoder for [Photopea image editor](https://www.photopea.com). Try to open your TIFF file with Photopea to see, if UTIF.js can parse it.
+A small, fast and advanced TIFF / EXIF decoder and encoder. It is the main TIFF library for [Photopea image editor](https://www.photopea.com). Try to open your TIFF file with Photopea to see, if UTIF.js can parse it.
 
 * Supports Black & White, Grayscale, RGB and Paletted images
 * Supports Fax 3 and Fax 4 (CCITT), LZW, PackBits and other compressions
