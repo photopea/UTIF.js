@@ -104,6 +104,7 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
+	else if(cmpr==7) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  console.log(bin.length); for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff); 
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
@@ -310,11 +311,57 @@ UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 	}
 }
 
+UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
+{
+    if (typeof JpegDecoder === "undefined") {
+        console.error("jpg.js required for handling JPEG compressed images");
+        return;
+    }
+
+    var SOI = 216,
+        EOI = 217,
+        i,
+        boff = 0,
+        tables = img["t347"],
+        buff = new Uint8Array(tables.length + len);
+
+    for (i = 0; i < (tables.length - 1); i++) {
+        // Skip EOI marker from JPEGTables
+        if (tables[i] == 255 && tables[i + 1] == EOI) {
+            break;
+        }
+        buff[boff++] = tables[i];
+    }
+
+    // Skip SOI marker from data
+    var byte1 = data[off];
+    var byte2 = data[off + 1];
+    if (byte1 != 255 || byte2 != SOI) {
+        buff[boff++] = byte1;
+        buff[boff++] = byte2;
+    }
+
+    for (i = 2; i < len; i++) {
+        buff[boff++] = data[off + i];
+    }
+
+    var parser = new JpegDecoder();
+    parser.parse(buff);
+    var decoded = parser.getData(parser.width, parser.height);
+    for (i = 0; i < decoded.length; i++) {
+        tgt[toff + i] = decoded[i];
+    }
+
+    // PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
+    // RGB format, so updating the tag value
+    img["t262"][0] = 2;
+}
+
 UTIF.tags = {254:"NewSubfileType",255:"SubfileType",256:"ImageWidth",257:"ImageLength",258:"BitsPerSample",259:"Compression",262:"PhotometricInterpretation",266:"FillOrder",
 			 269:"DocumentName",270:"ImageDescription",271:"Make",272:"Model",273:"StripOffset",274:"Orientation",277:"SamplesPerPixel",278:"RowsPerStrip",
 			 279:"StripByteCounts",280:"MinSampleValue",281:"MaxSampleValue",282:"XResolution",283:"YResolution",284:"PlanarConfiguration",286:"XPosition",287:"YPosition",
 			 292:"T4Options",296:"ResolutionUnit",297:"PageNumber",305:"Software",306:"DateTime",315:"Artist",317:"Predictor",320:"ColorMap",321:"HalftoneHints",322:"TileWidth",
-			 323:"TileLength",324:"TileOffset",325:"TileByteCounts",336:"DotRange",338:"ExtraSample",339:"SampleFormat",
+			 323:"TileLength",324:"TileOffset",325:"TileByteCounts",336:"DotRange",338:"ExtraSample",339:"SampleFormat", 347:"JPEGTables",
 			 512:"JPEGProc",513:"JPEGInterchangeFormat",514:"JPEGInterchangeFormatLength",519:"JPEGQTables",520:"JPEGDCTables",521:"JPEGACTables",
 			 529:"YCbCrCoefficients",530:"YCbCrSubSampling",531:"YCbCrPositioning",532:"ReferenceBlackWhite",33432:"Copyright",34377:"Photoshop"};		
 
