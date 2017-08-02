@@ -378,7 +378,7 @@ UTIF.toRGBA8 = function(out)
 	var img = new Uint8Array(area*4);
 	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask, 5: CMYK
 	var intp = out["t262"][0], bps = (out["t258"]?out["t258"][0]:1);
-	//console.log("interpretation: ", intp, "bps", bps);
+	//console.log("interpretation: ", intp, "bps", bps, out);
 	if(intp==0) {
 		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-  (i&7)))& 1;  img[qi]=img[qi+1]=img[qi+2]=( 1-px)*255;  img[qi+3]=255;    }
 		if(bps== 4) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>1])>>(4-4*(i&1)))&15;  img[qi]=img[qi+1]=img[qi+2]=(15-px)* 17;  img[qi+3]=255;    }
@@ -393,7 +393,7 @@ UTIF.toRGBA8 = function(out)
 	if(intp==2) {
 		if(bps== 8) {	// this needs to be simplified ... how many channels are there???
 			if(out["t338"]) {
-				 if(out["t338"][0]==1) for(var i=0; i<qarea; i++) img[i] = data[i];
+				 if(out["t338"][0]>0) for(var i=0; i<qarea; i++) img[i] = data[i];	// sometimes t338 is 1 or 2 in case of Alpha 
 				 else  for(var i=0; i<qarea; i+=4) {  img[i] = data[i];  img[i+1] = data[i+1];  img[i+2] = data[i+2];  img[i+3] = 255;  }
 			} 
 			else {
