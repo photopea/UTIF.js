@@ -17,12 +17,17 @@ function log() {
 
 ;(function(UTIF, pako){
 
-UTIF.encodeImage = function(rgba, w, h)
+UTIF.encodeImage = function(rgba, w, h, metadata)
 {
 	var idf = { "t256":[w], "t257":[h], "t258":[8,8,8,8], "t259":[1], "t262":[2], "t273":[1000], // strips offset
 				"t277":[4], "t278":[h], /* rows per strip */          "t279":[w*h*4], // strip byte counts
 				"t282":[1], "t283":[1], "t284":[1], "t286":[0], "t287":[0], "t296":[1], "t305": ["Photopea (UTIF.js)"], "t338":[1]
 		};
+	if (metadata) {
+		for (var i in metadata) {
+			idf[i] = metadata[i];
+		}
+	}
 	var prfx = new Uint8Array(UTIF.encode([idf]));
 	var img = new Uint8Array(rgba);
 	var data = new Uint8Array(1000+w*h*4);
