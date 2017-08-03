@@ -9,8 +9,13 @@ var pako;
 if (typeof require == "function") {pako = require("pako");}
 else {pako = window.pako;}
 
+function log() {
+	if (typeof process == 'undefined' || process.env.NODE_ENV == 'development') {
+		console.log.apply(console, arguments);
+	}
+}
 
-(function(UTIF, pako){
+;(function(UTIF, pako){
 
 UTIF.encodeImage = function(rgba, w, h)
 {
@@ -72,7 +77,7 @@ UTIF.decode = function(buff)
 
 		var cmpr = img["t259"][0];  delete img["t259"];
 		var fo = img["t266"] ? img["t266"][0] : 1;  delete img["t266"];
-		if(img["t284"] && img["t284"][0]==2) console.log("PlanarConriguration 2 should not be used!");
+		if(img["t284"] && img["t284"][0]==2) log("PlanarConriguration 2 should not be used!");
 
 		var bipp = (img["t258"]?img["t258"][0]:1) * (img["t277"]?img["t277"][0]:1);  // bits per pixel
 		var soff = img["t273"];  if(soff==null) soff = img["t324"];
@@ -116,10 +121,10 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
-	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  console.log(bin.length); for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
+	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  log(bin.length); for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff);
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
-	else console.log("Unknown compression", cmpr);
+	else log("Unknown compression", cmpr);
 
 	if(img["t317"] && img["t317"][0]==2)
 	{
@@ -213,7 +218,7 @@ UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w, fo)
 			clr=0;  y++;  a0=0;
 			pline=U._makeDiff(line);  line=[];
 		}
-		//if(wrd.length>150) {  console.log(wrd);  break;  throw "e";  }
+		//if(wrd.length>150) {  log(wrd);  break;  throw "e";  }
 	}
 }
 
@@ -263,7 +268,7 @@ UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 			boff++;
 			if(U._decodeG3.allow2D==null) U._decodeG3.allow2D=is1D;
 			if(!U._decodeG3.allow2D) {  is1D = true;  boff--;  }
-			//console.log("EOL",y, "next 1D:", is1D);
+			//log("EOL",y, "next 1D:", is1D);
 			wrd="";  clr=0;  y++;  a0=0;
 			pline=U._makeDiff(line);  line=[];
 		}
@@ -289,7 +294,7 @@ UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 	{
 		v = (data[boff>>3]<<16) | (data[(boff+8)>>3]<<8) | data[(boff+16)>>3];
 		Code = ( v>>(24-(boff&7)-bits) )    &   ((1<<bits)-1);  boff+=bits;
-		if(tab.length==0 && Code!=ClearCode) {  console.log("Error in LZW");  return;  }
+		if(tab.length==0 && Code!=ClearCode) {  log("Error in LZW");  return;  }
 
 		if(Code==EoiCode) break;
 		if(Code==ClearCode) {
@@ -349,8 +354,8 @@ UTIF._readIFD = function(bin, data, offset, ifds)
 		if(type==3) {  for(var j=0; j<num; j++) arr.push(bin.readUshort(data, (num<3 ? offset-4 : voff)+2*j));  }
 		if(type==4) {  for(var j=0; j<num; j++) arr.push(bin.readUint  (data, (num<2 ? offset-4 : voff)+4*j));  }
 		if(type==5) {  for(var j=0; j<num; j++) arr.push(bin.readUint(data, voff+j*8) / bin.readUint(data,voff+j*8+4));  }
-		if(arr.length==0) console.log("unknown TIFF tag type: ", type, "num:",num);
-		//console.log(tag, type, arr, UTIF.tags[tag]);
+		if(arr.length==0) log("unknown TIFF tag type: ", type, "num:",num);
+		//log(tag, type, arr, UTIF.tags[tag]);
 	}
 	return offset;
 }
@@ -390,7 +395,7 @@ UTIF.toRGBA8 = function(out)
 	var img = new Uint8Array(area*4);
 	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask, 5: CMYK
 	var intp = out["t262"][0], bps = (out["t258"]?out["t258"][0]:1);
-	//console.log("interpretation: ", intp, "bps", bps, out);
+	//log("interpretation: ", intp, "bps", bps, out);
 	if(intp==0) {
 		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-  (i&7)))& 1;  img[qi]=img[qi+1]=img[qi+2]=( 1-px)*255;  img[qi+3]=255;    }
 		if(bps== 4) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>1])>>(4-4*(i&1)))&15;  img[qi]=img[qi+1]=img[qi+2]=(15-px)* 17;  img[qi+3]=255;    }
