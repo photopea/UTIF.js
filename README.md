@@ -5,6 +5,14 @@ A small, fast and advanced TIFF / EXIF decoder and encoder. It is the main TIFF 
 * Supports Fax 3 and Fax 4 (CCITT), LZW, PackBits and other compressions
 * E.g. [this 8 MPix image](//www.photopea.com/api/img/G4.TIF) with Fax 4 compression is just 56 kB ( [Open in Photopea](https://www.photopea.com?p=%7B%22files%22:%5B%22//www.photopea.com/api/img/G4.TIF%22%5D%7D) )
 
+## Installation
+
+Download and include the `UTIF.js` file in your code. If you're in NodeJS or otherwise using NPM, run:
+
+```sh
+npm install utif
+```
+
 #### `UTIF.decode(buffer)`
 * `buffer`: ArrayBuffer containing TIFF or EXIF data
 * returns an array of "images" (or "layers", "pages"). Each element of this array is an object with following properties:
@@ -39,7 +47,7 @@ If you are not a programmer, you can use TIFF images directly inside the `<img>`
 
 #### `UTIF.replaceIMG()`
 ```html
-<body onload="UTIF.replaceIMG()"> 
+<body onload="UTIF.replaceIMG()">
 ...
 <img src="image.tif" />  <img src="dog.tif" /> ...
 ```
