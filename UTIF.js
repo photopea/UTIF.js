@@ -323,26 +323,33 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
         i,
         boff = 0,
         tables = img["t347"],
-        buff = new Uint8Array(tables.length + len);
+        tlen = tables ? tables.length : 0,
+        buff = new Uint8Array(tlen + len);
 
-    for (i = 0; i < (tables.length - 1); i++) {
-        // Skip EOI marker from JPEGTables
-        if (tables[i] == 255 && tables[i + 1] == EOI) {
-            break;
+    if (tables) {
+        for (i = 0; i < (tlen - 1); i++) {
+            // Skip EOI marker from JPEGTables
+            if (tables[i] == 255 && tables[i + 1] == EOI) {
+                break;
+            }
+            buff[boff++] = tables[i];
         }
-        buff[boff++] = tables[i];
-    }
 
-    // Skip SOI marker from data
-    var byte1 = data[off];
-    var byte2 = data[off + 1];
-    if (byte1 != 255 || byte2 != SOI) {
-        buff[boff++] = byte1;
-        buff[boff++] = byte2;
-    }
+        // Skip SOI marker from data
+        var byte1 = data[off];
+        var byte2 = data[off + 1];
+        if (byte1 != 255 || byte2 != SOI) {
+            buff[boff++] = byte1;
+            buff[boff++] = byte2;
+        }
 
-    for (i = 2; i < len; i++) {
-        buff[boff++] = data[off + i];
+        for (i = 2; i < len; i++) {
+            buff[boff++] = data[off + i];
+        }
+    } else {
+        for (i = 0; i < len; i++) {
+            buff[boff++] = data[off + i];
+        }
     }
 
     var parser = new JpegDecoder();
