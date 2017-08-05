@@ -1,4 +1,5 @@
-(function(){
+
+;(function(){
 var UTIF = {};
 
 // Make available for import by `require()`
@@ -521,3 +522,4 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 
 })(UTIF, pako);
 })();
+
