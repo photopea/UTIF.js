@@ -58,10 +58,11 @@ And UTIF.js will do the rest. Internally, an Image elements will be replaced by 
 
 You should not save images into TIFF format in the 21st century. Save them as PNG instead (e.g. using [UPNG.js](https://github.com/photopea/UPNG.js)). If you still want to use TIFF format for some reason, here it is.
 
-#### `UTIF.encodeImage(rgba, w, h)`
+#### `UTIF.encodeImage(rgba, w, h, metadata)`
 * `rgba`: ArrayBuffer containing RGBA pixel data
 * `w`: image width
 * `h`: image height
+* `metadata` [optional]: IFD object (see below)
 * returns ArrayBuffer of the binary TIFF file. No compression right now.
 
 #### `UTIF.encode(ifds)`
