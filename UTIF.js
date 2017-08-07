@@ -6,9 +6,9 @@ var UTIF = {};
 if (typeof module == "object") {module.exports = UTIF;}
 else {window.UTIF = UTIF;}
 
-var pako;
-if (typeof require == "function") {pako = require("pako");}
-else {pako = window.pako;}
+var pako, JpegDecoder;
+if (typeof require == "function") {pako = require("pako"); JpegDecoder = require("jpgjs").JpegDecoder;}
+else {pako = window.pako; JpegDecoder = window.JpegDecoder;}
 
 function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="development") console.log.apply(console, arguments);  }
 
@@ -161,8 +161,8 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
         }
 
         for (var i=2; i<len; i++) buff[boff++] = data[off+i];
-    } 
-	else 
+    }
+	else
         for (var i=0; i<len; i++) buff[boff++] = data[off+i];
 
     var parser = new JpegDecoder();  parser.parse(buff);
@@ -527,4 +527,3 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 
 })(UTIF, pako);
 })();
-
