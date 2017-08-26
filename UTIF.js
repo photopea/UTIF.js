@@ -1,3 +1,4 @@
+
 ;(function(){
 var UTIF = {};
 
@@ -5,24 +6,25 @@ var UTIF = {};
 if (typeof module == "object") {module.exports = UTIF;}
 else {window.UTIF = UTIF;}
 
-var pako;
-if (typeof require == "function") {pako = require("pako");}
-else {pako = window.pako;}
+var pako, JpegDecoder;
+if (typeof require == "function") {pako = require("pako"); JpegDecoder = require("jpgjs").JpegDecoder;}
+else {pako = window.pako; JpegDecoder = window.JpegDecoder;}
 
-function log() {
-	if (typeof process == 'undefined' || process.env.NODE_ENV == 'development') {
-		console.log.apply(console, arguments);
-	}
-}
+function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="development") console.log.apply(console, arguments);  }
 
-;(function(UTIF, pako){
+(function(UTIF, pako){
 
-UTIF.encodeImage = function(rgba, w, h)
+UTIF.encodeImage = function(rgba, w, h, metadata)
 {
 	var idf = { "t256":[w], "t257":[h], "t258":[8,8,8,8], "t259":[1], "t262":[2], "t273":[1000], // strips offset
 				"t277":[4], "t278":[h], /* rows per strip */          "t279":[w*h*4], // strip byte counts
 				"t282":[1], "t283":[1], "t284":[1], "t286":[0], "t287":[0], "t296":[1], "t305": ["Photopea (UTIF.js)"], "t338":[1]
 		};
+	if (metadata) {
+		for (var i in metadata) {
+			idf[i] = metadata[i];
+		}
+	}
 	var prfx = new Uint8Array(UTIF.encode([idf]));
 	var img = new Uint8Array(rgba);
 	var data = new Uint8Array(1000+w*h*4);
@@ -135,6 +137,41 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 			for(var j=noc; j<bpr; j++) tgt[ntoff+j] = (tgt[ntoff+j] + tgt[ntoff+j-noc])&255;
 		}
 	}
+}
+
+UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
+{
+    if (typeof JpegDecoder=="undefined") { log("jpg.js required for handling JPEG compressed images");  return;  }
+
+    var SOI = 216, EOI = 217, boff = 0;
+    var tables = img["t347"], tlen = tables ? tables.length : 0, buff = new Uint8Array(tlen + len);
+
+    if (tables) {
+        for (var i=0; i<(tlen-1); i++) {
+            // Skip EOI marker from JPEGTables
+            if (tables[i]==255 && tables[i+1]==EOI) break;
+            buff[boff++] = tables[i];
+        }
+
+        // Skip SOI marker from data
+        var byte1 = data[off], byte2 = data[off + 1];
+        if (byte1!=255 || byte2!=SOI) {
+            buff[boff++] = byte1;
+            buff[boff++] = byte2;
+        }
+
+        for (var i=2; i<len; i++) buff[boff++] = data[off+i];
+    }
+	else
+        for (var i=0; i<len; i++) buff[boff++] = data[off+i];
+
+    var parser = new JpegDecoder();  parser.parse(buff);
+    var decoded = parser.getData(parser.width, parser.height);
+    for (var i=0; i<decoded.length; i++) tgt[toff + i] = decoded[i];
+
+    // PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
+    // RGB format, so updating the tag value
+    img["t262"][0] = 2;
 }
 
 UTIF.decode._decodePackBits = function(data, off, len, tgt, toff)
@@ -326,59 +363,6 @@ UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 			OldCode = Code;
 		}
 	}
-}
-
-UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
-{
-    if (typeof JpegDecoder === "undefined") {
-        console.error("jpg.js required for handling JPEG compressed images");
-        return;
-    }
-
-    var SOI = 216,
-        EOI = 217,
-        i,
-        boff = 0,
-        tables = img["t347"],
-        tlen = tables ? tables.length : 0,
-        buff = new Uint8Array(tlen + len);
-
-    if (tables) {
-        for (i = 0; i < (tlen - 1); i++) {
-            // Skip EOI marker from JPEGTables
-            if (tables[i] == 255 && tables[i + 1] == EOI) {
-                break;
-            }
-            buff[boff++] = tables[i];
-        }
-
-        // Skip SOI marker from data
-        var byte1 = data[off];
-        var byte2 = data[off + 1];
-        if (byte1 != 255 || byte2 != SOI) {
-            buff[boff++] = byte1;
-            buff[boff++] = byte2;
-        }
-
-        for (i = 2; i < len; i++) {
-            buff[boff++] = data[off + i];
-        }
-    } else {
-        for (i = 0; i < len; i++) {
-            buff[boff++] = data[off + i];
-        }
-    }
-
-    var parser = new JpegDecoder();
-    parser.parse(buff);
-    var decoded = parser.getData(parser.width, parser.height);
-    for (i = 0; i < decoded.length; i++) {
-        tgt[toff + i] = decoded[i];
-    }
-
-    // PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
-    // RGB format, so updating the tag value
-    img["t262"][0] = 2;
 }
 
 UTIF.tags = {254:"NewSubfileType",255:"SubfileType",256:"ImageWidth",257:"ImageLength",258:"BitsPerSample",259:"Compression",262:"PhotometricInterpretation",266:"FillOrder",
