@@ -6,25 +6,20 @@ var UTIF = {};
 if (typeof module == "object") {module.exports = UTIF;}
 else {window.UTIF = UTIF;}
 
-var pako, JpegDecoder;
-if (typeof require == "function") {pako = require("pako"); JpegDecoder = require("jpgjs").JpegDecoder;}
-else {pako = window.pako; JpegDecoder = window.JpegDecoder;}
+var pako;
+if (typeof require == "function") {pako = require("pako");}
+else {pako = window.pako;}
 
 function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="development") console.log.apply(console, arguments);  }
 
 (function(UTIF, pako){
 
-UTIF.encodeImage = function(rgba, w, h, metadata)
+UTIF.encodeImage = function(rgba, w, h)
 {
 	var idf = { "t256":[w], "t257":[h], "t258":[8,8,8,8], "t259":[1], "t262":[2], "t273":[1000], // strips offset
 				"t277":[4], "t278":[h], /* rows per strip */          "t279":[w*h*4], // strip byte counts
 				"t282":[1], "t283":[1], "t284":[1], "t286":[0], "t287":[0], "t296":[1], "t305": ["Photopea (UTIF.js)"], "t338":[1]
 		};
-	if (metadata) {
-		for (var i in metadata) {
-			idf[i] = metadata[i];
-		}
-	}
 	var prfx = new Uint8Array(UTIF.encode([idf]));
 	var img = new Uint8Array(rgba);
 	var data = new Uint8Array(1000+w*h*4);
@@ -73,7 +68,8 @@ UTIF.decode = function(buff)
 
 	for(var ii=0; ii<ifds.length; ii++)
 	{
-		var img = ifds[ii];
+		var img = ifds[ii];  
+		img.isLE = (id=="II");
 		img.width  = img["t256"][0];  delete img["t256"];
 		img.height = img["t257"][0];  delete img["t257"];
 
@@ -124,7 +120,7 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
 	else if(cmpr==7) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
-	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  log(bin.length); for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
+	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff);
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
 	else log("Unknown compression", cmpr);
@@ -161,8 +157,8 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
         }
 
         for (var i=2; i<len; i++) buff[boff++] = data[off+i];
-    }
-	else
+    } 
+	else 
         for (var i=0; i<len; i++) buff[boff++] = data[off+i];
 
     var parser = new JpegDecoder();  parser.parse(buff);
@@ -432,7 +428,7 @@ UTIF.toRGBA8 = function(out)
 	var w = out.width, h = out.height, area = w*h, qarea = area*4, data = out.data;
 	var img = new Uint8Array(area*4);
 	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask, 5: CMYK
-	var intp = out["t262"][0], bps = (out["t258"]?out["t258"][0]:1);
+	var intp = out["t262"][0], bps = (out["t258"]?out["t258"][0]:1), leC = out.isLE ? 1 : 0;
 	//log("interpretation: ", intp, "bps", bps, out);
 	if(intp==0) {
 		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-  (i&7)))& 1;  img[qi]=img[qi+1]=img[qi+2]=( 1-px)*255;  img[qi+3]=255;    }
@@ -443,7 +439,7 @@ UTIF.toRGBA8 = function(out)
 		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-  (i&7)))&1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
 		if(bps== 2) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>2])>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
 		if(bps== 8) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[i];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
-		if(bps==16) for(var i=0; i<area; i++) {  var qi=i<<2, px=(Math.max(0,data[2*i+1]-5)<<8)|data[2*i];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
+		if(bps==16) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[2*i+leC];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
 	}
 	if(intp==2) {
 		if(bps== 8) {	// this needs to be simplified ... how many channels are there???
@@ -527,3 +523,4 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 
 })(UTIF, pako);
 })();
+
