@@ -172,7 +172,7 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 
     // PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
     // RGB format, so updating the tag value
-    img["t262"][0] = 2;
+    if(img["t262"][0] == 6)  img["t262"][0] = 2;
 }
 
 UTIF.decode._decodePackBits = function(data, off, len, tgt, toff)
