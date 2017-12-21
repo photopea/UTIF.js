@@ -2,13 +2,16 @@
 ;(function(){
 var UTIF = {};
 
+// Allows us to use this inside ServiceWorker
+if (typeof window === 'undefined' && typeof self !== 'undefined') window = self;
+
 // Make available for import by `require()`
 if (typeof module == "object") {module.exports = UTIF;}
-else {self.UTIF = UTIF;}
+else {window.UTIF = UTIF;}
 
 var pako, JpegDecoder;
 if (typeof require == "function") {pako = require("pako"); JpegDecoder = require("jpgjs").JpegDecoder;}
-else {pako = self.pako; JpegDecoder = self.JpegDecoder;}
+else {pako = window.pako; JpegDecoder = window.JpegDecoder;}
 
 function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="development") console.log.apply(console, arguments);  }
 
