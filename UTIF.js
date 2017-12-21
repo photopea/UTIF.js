@@ -4,11 +4,11 @@ var UTIF = {};
 
 // Make available for import by `require()`
 if (typeof module == "object") {module.exports = UTIF;}
-else {window.UTIF = UTIF;}
+else {self.UTIF = UTIF;}
 
 var pako, JpegDecoder;
 if (typeof require == "function") {pako = require("pako"); JpegDecoder = require("jpgjs").JpegDecoder;}
-else {pako = window.pako; JpegDecoder = window.JpegDecoder;}
+else {pako = self.pako; JpegDecoder = self.JpegDecoder;}
 
 function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="development") console.log.apply(console, arguments);  }
 
