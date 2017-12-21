@@ -1,6 +1,9 @@
 
 ;(function(){
 var UTIF = {};
+	
+// Allows us to use this inside ServiceWorker
+if (typeof window === 'undefined' && typeof self !== 'undefined') window = self;
 
 // Make available for import by `require()`
 if (typeof module == "object") {module.exports = UTIF;}
