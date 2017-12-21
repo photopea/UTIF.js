@@ -85,21 +85,21 @@ UTIF.decode = function(buff)
 
 		var bipp = (img["t258"]?Math.min(32,img["t258"][0]):1) * (img["t277"]?img["t277"][0]:1);  // bits per pixel
 		var soff = img["t273"];  if(soff==null) soff = img["t324"];
-		var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [(img.height*img.width*bipp)>>3];  if(bcnt==null) bcnt = img["t325"];
-		var bytes = new Uint8Array((img.width*img.height*bipp)>>3), bilen = 0;
+		var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [(img.height*img.width*bipp)>>>3];  if(bcnt==null) bcnt = img["t325"];
+		var bytes = new Uint8Array((img.width*img.height*bipp)>>>3), bilen = 0;
 
 		if(img["t322"]!=null) // tiled
 		{
 			var tw = img["t322"][0], th = img["t323"][0];
 			var tx = Math.floor((img.width  + tw - 1) / tw);
 			var ty = Math.floor((img.height + th - 1) / th);
-			var tbuff = new Uint8Array((tw*th*bipp)>>3);
+			var tbuff = new Uint8Array((tw*th*bipp)>>>3);
 			for(var y=0; y<ty; y++)
 				for(var x=0; x<tx; x++)
 				{
 					var i = y*tx+x;  for(var j=0; j<tbuff.length; j++) tbuff[j]=0;
 					UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, tbuff, 0, fo);
-					UTIF._copyTile(tbuff, (tw*bipp)>>3, th, bytes, (img.width*bipp)>>3, img.height, (x*tw*bipp)>>3, y*th);
+					UTIF._copyTile(tbuff, (tw*bipp)>>>3, th, bytes, (img.width*bipp)>>>3, img.height, (x*tw*bipp)>>>3, y*th);
 				}
 			bilen = bytes.length<<3;
 		}
@@ -108,12 +108,12 @@ UTIF.decode = function(buff)
 			var rps = img["t278"] ? img["t278"][0] : img.height;   rps = Math.min(rps, img.height);
 			for(var i=0; i<soff.length; i++)
 			{
-				UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, bytes, bilen>>3, fo);
+				UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, bytes, bilen>>>3, fo);
 				bilen += (img.width * bipp * rps);
 			}
 			bilen = Math.min(bilen, bytes.length<<3);
 		}
-		img.data = new Uint8Array(bytes.buffer, 0, bilen>>3);
+		img.data = new Uint8Array(bytes.buffer, 0, bilen>>>3);
 	}
 	return ifds;
 }
@@ -175,9 +175,9 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 		var out = dcdr.decode(buff), olen=out.length;
 		
 		if(false) {}
-		else if(bps==16) for(var i=0; i<olen; i++) {  tgt[toff++] = (out[i]&255);  tgt[toff++] = (out[i]>>8);  }
+		else if(bps==16) for(var i=0; i<olen; i++) {  tgt[toff++] = (out[i]&255);  tgt[toff++] = (out[i]>>>8);  }
 		else if(bps==12) {
-			for(var i=0; i<olen; i+=2) {  tgt[toff++] = (out[i]>>4);  tgt[toff++] = ((out[i]<<4)|(out[i+1]>>8))&255;  tgt[toff++] = out[i+1]&255;  }
+			for(var i=0; i<olen; i+=2) {  tgt[toff++] = (out[i]>>>4);  tgt[toff++] = ((out[i]<<4)|(out[i+1]>>>8))&255;  tgt[toff++] = out[i+1]&255;  }
 		}
 		else throw "unsupported bit depth "+bps;
 	}
@@ -211,11 +211,11 @@ UTIF.decode._decodeThunder = function(data, off, len, tgt, toff)
 	var d2 = [ 0, 1, 0, -1 ],  d3 = [ 0, 1, 2, 3, 0, -3, -2, -1 ];
 	var lim = off+len, qoff = toff*2, px = 0;
 	while(off<lim) {
-		var b = data[off], msk = (b>>6), n = (b&63);  off++;
-		if(msk==3) { px=(n&15);  tgt[qoff>>1] |= (px<<(4*(1-qoff&1)));  qoff++;   }
-		if(msk==0) for(var i=0; i<n; i++) {  tgt[qoff>>1] |= (px<<(4*(1-qoff&1)));  qoff++;   }
-		if(msk==2) for(var i=0; i<2; i++) {  var d=(n>>(3*(1-i)))&7;  if(d!=4) { px+=d3[d];  tgt[qoff>>1] |= (px<<(4*(1-qoff&1)));  qoff++; }  }
-		if(msk==1) for(var i=0; i<3; i++) {  var d=(n>>(2*(2-i)))&3;  if(d!=2) { px+=d2[d];  tgt[qoff>>1] |= (px<<(4*(1-qoff&1)));  qoff++; }  }
+		var b = data[off], msk = (b>>>6), n = (b&63);  off++;
+		if(msk==3) { px=(n&15);  tgt[qoff>>>1] |= (px<<(4*(1-qoff&1)));  qoff++;   }
+		if(msk==0) for(var i=0; i<n; i++) {  tgt[qoff>>>1] |= (px<<(4*(1-qoff&1)));  qoff++;   }
+		if(msk==2) for(var i=0; i<2; i++) {  var d=(n>>>(3*(1-i)))&7;  if(d!=4) { px+=d3[d];  tgt[qoff>>>1] |= (px<<(4*(1-qoff&1)));  qoff++; }  }
+		if(msk==1) for(var i=0; i<3; i++) {  var d=(n>>>(2*(2-i)))&3;  if(d!=2) { px+=d2[d];  tgt[qoff>>>1] |= (px<<(4*(1-qoff&1)));  qoff++; }  }
 	}
 }
 
@@ -256,12 +256,12 @@ UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w, fo)
 	var a0=0, a1=0, a2=0, b1=0, b2=0, clr=0;
 	var y=0, mode="", toRead=0;
 
-	while((boff>>3)<off+slen)
+	while((boff>>>3)<off+slen)
 	{
 		b1 = U._findDiff(pline, a0+(a0==0?0:1), 1-clr), b2 = U._findDiff(pline, b1, clr);	// could be precomputed
 		var bit =0;
-		if(fo==1) bit = (data[boff>>3]>>(7-(boff&7)))&1;
-		if(fo==2) bit = (data[boff>>3]>>(  (boff&7)))&1;
+		if(fo==1) bit = (data[boff>>>3]>>>(7-(boff&7)))&1;
+		if(fo==2) bit = (data[boff>>>3]>>>(  (boff&7)))&1;
 		boff++;  wrd+=bit;
 		if(mode=="H") {
 			if(U._lens[clr][wrd]!=null) {
@@ -295,12 +295,12 @@ UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 	var line=[], pline=[];  for(var i=0; i<w; i++) line.push(0);
 	var a0=0, a1=0, a2=0, b1=0, b2=0, clr=0;
 	var y=-1, mode="", toRead=0, is1D=false;
-	while((boff>>3)<off+slen)
+	while((boff>>>3)<off+slen)
 	{
 		b1 = U._findDiff(pline, a0+(a0==0?0:1), 1-clr), b2 = U._findDiff(pline, b1, clr);	// could be precomputed
 		var bit =0;
-		if(fo==1) bit = (data[boff>>3]>>(7-(boff&7)))&1;
-		if(fo==2) bit = (data[boff>>3]>>(  (boff&7)))&1;
+		if(fo==1) bit = (data[boff>>>3]>>>(7-(boff&7)))&1;
+		if(fo==2) bit = (data[boff>>>3]>>>(  (boff&7)))&1;
 		boff++;  wrd+=bit;
 
 		if(is1D) {
@@ -324,8 +324,8 @@ UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 		}
 		if(wrd.endsWith("000000000001")) { 	// needed for some files
 			if(y>=0) U._writeBits(line, tgt, toff*8+y*w);
-			if(fo==1) is1D = ((data[boff>>3]>>(7-(boff&7)))&1)==1;
-			if(fo==2) is1D = ((data[boff>>3]>>(  (boff&7)))&1)==1;
+			if(fo==1) is1D = ((data[boff>>>3]>>>(7-(boff&7)))&1)==1;
+			if(fo==2) is1D = ((data[boff>>>3]>>>(  (boff&7)))&1)==1;
 			boff++;
 			if(U._decodeG3.allow2D==null) U._decodeG3.allow2D=is1D;
 			if(!U._decodeG3.allow2D) {  is1D = true;  boff--;  }
@@ -341,7 +341,7 @@ UTIF.decode._addNtimes = function(arr, n, val) {  for(var i=0; i<n; i++) arr.pus
 
 UTIF.decode._writeBits = function(bits, tgt, boff)
 {
-	for(var i=0; i<bits.length; i++) tgt[(boff+i)>>3] |= (bits[i]<<(7-((boff+i)&7)));
+	for(var i=0; i<bits.length; i++) tgt[(boff+i)>>>3] |= (bits[i]<<(7-((boff+i)&7)));
 }
 
 UTIF.decode._decodeLZW = function(data, off, tgt, toff)
@@ -353,15 +353,15 @@ UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 	var v = 0, Code = 0, OldCode = 0;
 	while(true)
 	{
-		v = (data[boff>>3]<<16) | (data[(boff+8)>>3]<<8) | data[(boff+16)>>3];
-		Code = ( v>>(24-(boff&7)-bits) )    &   ((1<<bits)-1);  boff+=bits;
+		v = (data[boff>>>3]<<16) | (data[(boff+8)>>>3]<<8) | data[(boff+16)>>>3];
+		Code = ( v>>>(24-(boff&7)-bits) )    &   ((1<<bits)-1);  boff+=bits;
 		if(tab.length==0 && Code!=ClearCode) {  log("Error in LZW");  return;  }
 
 		if(Code==EoiCode) break;
 		if(Code==ClearCode) {
 			bits=9;  tab = [];  for(var i=0; i<258; i++) tab[i] = [i];
-			v = (data[boff>>3]<<16) | (data[(boff+8)>>3]<<8) | data[(boff+16)>>3];
-			Code = ( v>>(24-(boff&7)-bits) )    &   ((1<<bits)-1);  boff+=bits;
+			v = (data[boff>>>3]<<16) | (data[(boff+8)>>>3]<<8) | data[(boff+16)>>>3];
+			Code = ( v>>>(24-(boff&7)-bits) )    &   ((1<<bits)-1);  boff+=bits;
 			if(Code==EoiCode) break;
 			for(var i=0; i<tab[Code].length; i++) tgt[toff+i] = tab[Code][i];
 			toff += tab[Code].length;
@@ -495,13 +495,13 @@ UTIF.toRGBA8 = function(out)
 	//log("interpretation: ", intp, "bps", bps, out);
 	if(false) {}
 	else if(intp==0) {
-		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-  (i&7)))& 1;  img[qi]=img[qi+1]=img[qi+2]=( 1-px)*255;  img[qi+3]=255;    }
-		if(bps== 4) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>1])>>(4-4*(i&1)))&15;  img[qi]=img[qi+1]=img[qi+2]=(15-px)* 17;  img[qi+3]=255;    }
+		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>>3])>>>(7-  (i&7)))& 1;  img[qi]=img[qi+1]=img[qi+2]=( 1-px)*255;  img[qi+3]=255;    }
+		if(bps== 4) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>>1])>>>(4-4*(i&1)))&15;  img[qi]=img[qi+1]=img[qi+2]=(15-px)* 17;  img[qi+3]=255;    }
 		if(bps== 8) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[i];  img[qi]=img[qi+1]=img[qi+2]=255-px;  img[qi+3]=255;    }
 	}
 	else if(intp==1) {
-		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-  (i&7)))&1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
-		if(bps== 2) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>2])>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
+		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>>3])>>>(7-  (i&7)))&1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
+		if(bps== 2) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>>2])>>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
 		if(bps== 8) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[i];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
 		if(bps==16) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[2*i+isLE];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
 	}
@@ -522,7 +522,7 @@ UTIF.toRGBA8 = function(out)
 	}
 	else if(intp==3) {
 		var map = out["t320"];
-		for(var i=0; i<area; i++) {  var qi=i<<2, mi=data[i];  img[qi]=(map[mi]>>8);  img[qi+1]=(map[256+mi]>>8);  img[qi+2]=(map[512+mi]>>8);  img[qi+3]=255;    }
+		for(var i=0; i<area; i++) {  var qi=i<<2, mi=data[i];  img[qi]=(map[mi]>>>8);  img[qi+1]=(map[256+mi]>>>8);  img[qi+2]=(map[512+mi]>>>8);  img[qi+3]=255;    }
 	}
 	else if(intp==5) for(var i=0; i<area; i++) {
 		var qi=i<<2;  var C=255-data[qi], M=255-data[qi+1], Y=255-data[qi+2], K=(255-data[qi+3])*(1/255);
@@ -568,8 +568,8 @@ UTIF._binBE = {
 	readFloat  : function(buff, p) {  var a=UTIF._binBE.ui8;  for(var i=0;i<4;i++) a[i]=buff[p+3-i];  return UTIF._binBE.fl32[0];  },
 	readDouble : function(buff, p) {  var a=UTIF._binBE.ui8;  for(var i=0;i<8;i++) a[i]=buff[p+7-i];  return UTIF._binBE.fl64[0];  },
 
-	writeUshort: function(buff, p, n) {  buff[p] = (n>> 8)&255;  buff[p+1] =  n&255;  },
-	writeUint  : function(buff, p, n) {  buff[p] = (n>>24)&255;  buff[p+1] = (n>>16)&255;  buff[p+2] = (n>>8)&255;  buff[p+3] = (n>>0)&255;  },
+	writeUshort: function(buff, p, n) {  buff[p] = (n>>> 8)&255;  buff[p+1] =  n&255;  },
+	writeUint  : function(buff, p, n) {  buff[p] = (n>>>24)&255;  buff[p+1] = (n>>>16)&255;  buff[p+2] = (n>>>8)&255;  buff[p+3] = (n>>>0)&255;  },
 	writeASCII : function(buff, p, s) {  for(var i = 0; i < s.length; i++)  buff[p+i] = s.charCodeAt(i);  }
 }
 UTIF._binBE.ui8  = new Uint8Array  (8);
