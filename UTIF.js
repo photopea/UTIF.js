@@ -2,16 +2,13 @@
 ;(function(){
 var UTIF = {};
 
-// Allows us to use this inside ServiceWorker
-if (typeof window === 'undefined' && typeof self !== 'undefined') window = self;
-
 // Make available for import by `require()`
 if (typeof module == "object") {module.exports = UTIF;}
-else {window.UTIF = UTIF;}
+else {self.UTIF = UTIF;}
 
 var pako, JpegDecoder;
 if (typeof require == "function") {pako = require("pako"); JpegDecoder = require("jpgjs").JpegDecoder;}
-else {pako = window.pako; JpegDecoder = window.JpegDecoder;}
+else {pako = self.pako; JpegDecoder = self.JpegDecoder;}
 
 function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="development") console.log.apply(console, arguments);  }
 
@@ -88,35 +85,35 @@ UTIF.decode = function(buff)
 
 		var bipp = (img["t258"]?Math.min(32,img["t258"][0]):1) * (img["t277"]?img["t277"][0]:1);  // bits per pixel
 		var soff = img["t273"];  if(soff==null) soff = img["t324"];
-		var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [(img.height*img.width*bipp)>>>3];  if(bcnt==null) bcnt = img["t325"];
-		var bytes = new Uint8Array((img.width*img.height*bipp)>>>3), bilen = 0;
+		var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [Math.ceil(img.height*img.width*bipp/8)|0];  if(bcnt==null) bcnt = img["t325"];
+		var bytes = new Uint8Array(Math.ceil(img.width*img.height*bipp/8)|0), bilen = 0;
 
 		if(img["t322"]!=null) // tiled
 		{
 			var tw = img["t322"][0], th = img["t323"][0];
 			var tx = Math.floor((img.width  + tw - 1) / tw);
 			var ty = Math.floor((img.height + th - 1) / th);
-			var tbuff = new Uint8Array((tw*th*bipp)>>>3);
+			var tbuff = new Uint8Array(Math.ceil(tw*th*bipp/8)|0);
 			for(var y=0; y<ty; y++)
 				for(var x=0; x<tx; x++)
 				{
 					var i = y*tx+x;  for(var j=0; j<tbuff.length; j++) tbuff[j]=0;
 					UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, tbuff, 0, fo);
-					UTIF._copyTile(tbuff, (tw*bipp)>>>3, th, bytes, (img.width*bipp)>>>3, img.height, (x*tw*bipp)>>>3, y*th);
+					UTIF._copyTile(tbuff, Math.ceil(tw*bipp/8)|0, th, bytes, Math.ceil(img.width*bipp/8)|0, img.height, Math.ceil(x*tw*bipp/8)|0, y*th);
 				}
-			bilen = bytes.length<<3;
+			bilen = bytes.length*8;
 		}
 		else	// stripped
 		{
 			var rps = img["t278"] ? img["t278"][0] : img.height;   rps = Math.min(rps, img.height);
 			for(var i=0; i<soff.length; i++)
 			{
-				UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, bytes, bilen>>>3, fo);
+				UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, bytes, Math.ceil(bilen/8)|0, fo);
 				bilen += (img.width * bipp * rps);
 			}
-			bilen = Math.min(bilen, bytes.length<<3);
+			bilen = Math.min(bilen, bytes.length*8);
 		}
-		img.data = new Uint8Array(bytes.buffer, 0, bilen>>>3);
+		img.data = new Uint8Array(bytes.buffer, 0, Math.ceil(bilen/8)|0);
 	}
 	return ifds;
 }
@@ -138,9 +135,15 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	if(img["t317"] && img["t317"][0]==2)
 	{
 		var noc = (img["t277"]?img["t277"][0]:1), h = (img["t278"] ? img["t278"][0] : img.height), bpr = img.width*noc;
+		//console.log(noc);
 		for(var y=0; y<h; y++) {
 			var ntoff = toff+y*bpr;
-			for(var j=noc; j<bpr; j++) tgt[ntoff+j] = (tgt[ntoff+j] + tgt[ntoff+j-noc])&255;
+			if(noc==3) for(var j=  3; j<bpr; j+=3) {
+				tgt[ntoff+j  ] = (tgt[ntoff+j  ] + tgt[ntoff+j-3])&255;
+				tgt[ntoff+j+1] = (tgt[ntoff+j+1] + tgt[ntoff+j-2])&255;
+				tgt[ntoff+j+2] = (tgt[ntoff+j+2] + tgt[ntoff+j-1])&255;
+			}
+			else       for(var j=noc; j<bpr; j++) tgt[ntoff+j] = (tgt[ntoff+j] + tgt[ntoff+j-noc])&255;
 		}
 	}
 }
@@ -374,47 +377,64 @@ UTIF.decode._writeBits = function(bits, tgt, boff)
 
 UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 {
-	var tab = [];
+	if(UTIF.decode._lzwTab==null) {
+		var tb=new Uint32Array(0xffff), tn=new Uint16Array(0xffff), chr=new Uint8Array(2e6);  
+		for(var i=0; i<256; i++) { chr[i<<2]=i;  tb[i]=i<<2;  tn[i]=1;  }
+		UTIF.decode._lzwTab = [tb,tn,chr];
+	}
+	var copy = UTIF.decode._copyData;
+	var tab = UTIF.decode._lzwTab[0], tln=UTIF.decode._lzwTab[1], chr=UTIF.decode._lzwTab[2], totl = 258, chrl = 258<<2;
 	var bits = 9, boff = off<<3;  // offset in bits
 
 	var ClearCode = 256, EoiCode = 257;
 	var v = 0, Code = 0, OldCode = 0;
-	while(true)
-	{
-		v = (data[boff>>3]<<16) | (data[(boff+8)>>3]<<8) | data[(boff+16)>>3];
+	while(true) {
+		v = (data[boff>>>3]<<16) | (data[(boff+8)>>>3]<<8) | data[(boff+16)>>>3];
 		Code = ( v>>(24-(boff&7)-bits) )    &   ((1<<bits)-1);  boff+=bits;
-		if(tab.length==0 && Code!=ClearCode) {  log("Error in LZW");  return;  }
-
+		
 		if(Code==EoiCode) break;
 		if(Code==ClearCode) {
-			bits=9;  tab = [];  for(var i=0; i<258; i++) tab[i] = [i];
-			v = (data[boff>>3]<<16) | (data[(boff+8)>>3]<<8) | data[(boff+16)>>3];
+			bits=9;  totl = 258;  chrl = 258<<2;
+			
+			v = (data[boff>>>3]<<16) | (data[(boff+8)>>>3]<<8) | data[(boff+16)>>>3];
 			Code = ( v>>(24-(boff&7)-bits) )    &   ((1<<bits)-1);  boff+=bits;
 			if(Code==EoiCode) break;
-			for(var i=0; i<tab[Code].length; i++) tgt[toff+i] = tab[Code][i];
-			toff += tab[Code].length;
-			OldCode = Code;
+			tgt[toff]=Code;  toff++;
 		}
-		else if(Code<tab.length) {
-			for(var i=0; i<tab[Code].length; i++) tgt[toff+i] = tab[Code][i];
-			toff += tab[Code].length;
+		else if(Code<totl) {
+			var cd = tab[Code], cl = tln[Code];
+			copy(chr,cd,tgt,toff,cl);  toff += cl;
 
-			// not sure about the following line ... can tab[OldCode] really be null?
-			var nit = tab[OldCode]==null ? [] : tab[OldCode].slice(0);  nit.push(tab[Code][0]);
-			tab.push(nit);  if(tab.length+1==(1<<bits)) bits++;
-
-			OldCode = Code;
+			if(OldCode>=totl) {  tab[totl] = chrl;  chr[tab[totl]] = cd[0];  tln[totl]=1;  chrl=(chrl+1+3)&~0x03;  totl++;  }
+			else {
+				tab[totl] = chrl;
+				var nit = tab[OldCode], nil = tln[OldCode];
+				copy(chr,nit,chr,chrl,nil);
+				chr[chrl+nil]=chr[cd];  nil++;
+				tln[totl]=nil;  totl++;
+				
+				chrl=(chrl+nil+3)&~0x03;
+			}
+			if(totl+1==(1<<bits)) bits++;
 		}
 		else {
-			var OutString = tab[OldCode]==null ? [] : tab[OldCode].slice(0);  OutString.push(OutString[0]);
-			for(var i=0; i<OutString.length; i++) tgt[toff+i] = OutString[i];
-			toff += OutString.length;
-
-			tab.push(OutString);  if(tab.length+1==(1<<bits)) bits++;
-			OldCode = Code;
+			if(OldCode>=totl) {  tab[totl] = chrl;  tln[totl]=0;  totl++;  }
+			else {
+				tab[totl] = chrl;
+				var nit = tab[OldCode], nil = tln[OldCode];
+				copy(chr,nit,chr,chrl,nil);
+				chr[chrl+nil]=chr[chrl];  nil++;
+				tln[totl]=nil;  totl++;
+				
+				copy(chr,chrl,tgt,toff,nil);  toff += nil;  
+				chrl=(chrl+nil+3)&~0x03;
+			}
+			if(totl+1==(1<<bits)) bits++;
 		}
+		OldCode = Code;
 	}
 }
+UTIF.decode._copyData = function(s,so,t,to,l) {  for(var i=0;i<l;i+=4) {  t[to+i]=s[so+i];  t[to+i+1]=s[so+i+1];  t[to+i+2]=s[so+i+2];  t[to+i+3]=s[so+i+3];  }  }
 
 UTIF.tags = {254:"NewSubfileType",255:"SubfileType",256:"ImageWidth",257:"ImageLength",258:"BitsPerSample",259:"Compression",262:"PhotometricInterpretation",266:"FillOrder",
 			 269:"DocumentName",270:"ImageDescription",271:"Make",272:"Model",273:"StripOffset",274:"Orientation",277:"SamplesPerPixel",278:"RowsPerStrip",
