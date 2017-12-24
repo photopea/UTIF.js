@@ -81,7 +81,7 @@ xhr.onload = imgLoaded;   xhr.send();
 <input type="file" id="file_input">
 ```
 ```javascript
-var fi = document.getElementById('file');
+var fi = document.getElementById('file_input');
 fi.addEventListener('change', function(e) {
     var files = e.target.files;
     for (var i = 0, len = files.length; i < len; i++) {
