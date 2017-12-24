@@ -69,6 +69,20 @@ You should not save images into TIFF format in the 21st century. Save them as PN
 * `ifds`: array of IFDs (image file directories). An IFD is a JS object with properties "tXYZ" (where XYZ are TIFF tags)
 * returns ArrayBuffer of binary data. You can use it to encode EXIF data.
 
+## Progress Events
+
+You can get updates on the progress of decoding a TIFF file by using event listeners:
+
+```
+var progressContainer = document.getElementById('progress');
+UTIF.addEventListener('progress', function(progress) {
+    progressContainer.innerText = progress.message + ' ' +
+        progress.current + '/' + progress.total + ' ' +
+        (progress.percent*100).toFixed(2) + '%';
+});
+UTIF.decode(buffer);
+```
+
 ## Dependencies
 TIFF format sometimes uses Inflate algorithm for compression (but it is quite rare). Right now, UTIF.js calls [Pako.js](https://github.com/nodeca/pako) for the Inflate method.
 TIFF format sometimes uses JPEG compression (but it is quite rare). Right now, UTIF.js calls "JpegDecoder" constructor, which comes from [pdf.js](https://github.com/mozilla/pdf.js). You can find it "separated" from pdf.js in libraries such as jpg.js.
