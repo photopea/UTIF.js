@@ -14,6 +14,113 @@ function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="devel
 
 (function(UTIF, pako){
 
+UTIF.on = function(event, fn) {
+    var n;
+    this._callbacks = this._callbacks || {};
+    event = event.split(' ');
+    for (var i = 0, len = event.length; i < len; i++) {
+        n = event[i];
+        (this._callbacks['$' + n] = this._callbacks['$' + n] || []).push(fn);
+    }
+    return this;
+};
+UTIF.addEventListener = function(event, fn) {
+    return this.on(event, fn);
+};
+UTIF.once = function(event, fn) {
+    function on() {
+        this.off(event, on);
+        fn.apply(this, arguments);
+    }
+
+    on.fn = fn;
+    this.on(event, on);
+    return this;
+};
+UTIF.off = function(event, fn) {
+    this._callbacks = this._callbacks || {};
+
+    // all
+    if (0 === arguments.length / 1) {
+        this._callbacks = {};
+        return this;
+    }
+
+    // specific event
+    var callbacks = this._callbacks['$' + event];
+    if (!callbacks) return this;
+
+    // remove all handlers
+    if (1 == arguments.length) {
+        delete this._callbacks['$' + event];
+        return this;
+    }
+
+    // remove specific handler
+    var cb;
+    for (var i = 0; i < callbacks.length; i++) {
+        cb = callbacks[i];
+        if (cb === fn || cb.fn === fn) {
+            callbacks.splice(i, 1);
+            break;
+        }
+    }
+    return this;
+};
+UTIF.removeEventListener = function() { this.off.apply(this, arguments); };
+UTIF.removeAllListeners = function() { this.off.apply(this, arguments); };
+UTIF.removeListener = function() { this.off.apply(this, arguments); };
+UTIF.emit = function(event) {
+    this._callbacks = this._callbacks || {};
+    var args = [].slice.call(arguments, 1),
+        callbacks = this._callbacks['$' + event],
+        universalCallbacks = this._callbacks['$*'] || [];
+
+    if (callbacks) {
+        callbacks = callbacks.slice(0);
+        callbacks = callbacks.concat(universalCallbacks);
+        for (var i = 0, len = callbacks.length; i < len; ++i) {
+            this.currentEvent = event;
+            callbacks[i].apply(this, args);
+        }
+    }
+
+    return this;
+};
+UTIF.listeners = function(event) {
+    this._callbacks = this._callbacks || {};
+    return this._callbacks['$' + event] || [];
+};
+UTIF.hasListeners = function(event) {
+    return !!this.listeners(event).length;
+};
+
+UTIF.progress = {
+	total: 0,
+	current: 0,
+	message: 0,
+};
+
+UTIF.progress.update = function(def) {
+	if (typeof def === 'object') {
+		UTIF.progress.total = def.total || UTIF.progress.total;
+		UTIF.progress.current = def.current || UTIF.progress.current;
+		UTIF.progress.message = def.message || UTIF.progress.message;
+	} else if(typeof def === 'number') {
+		UTIF.progress.current = def;
+	}
+	UTIF.progress.send();
+};
+
+UTIF.progress.send = function() {
+	UTIF.emit('progress', {
+		total:   UTIF.progress.total,
+		current: UTIF.progress.current,
+		percent: UTIF.progress.current / UTIF.progress.total,
+		message: UTIF.progress.message,
+	});
+};
+
 UTIF.encodeImage = function(rgba, w, h, metadata)
 {
 	var idf = { "t256":[w], "t257":[h], "t258":[8,8,8,8], "t259":[1], "t262":[2], "t273":[1000], // strips offset
@@ -54,6 +161,7 @@ UTIF.decode = function(buff)
 {
 	UTIF.decode._decodeG3.allow2D = null;
 	var data = new Uint8Array(buff), offset = 0;
+	UTIF.progress.total = data.length/1;
 
 	var id = UTIF._binBE.readASCII(data, offset, 2);  offset+=2;
 	var bin = id=="II" ? UTIF._binLE : UTIF._binBE;
@@ -121,12 +229,26 @@ UTIF.decode = function(buff)
 UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  // fill order
 {
 	if(false) {}
-	else if(cmpr==1) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
+	else if(cmpr==1) {
+		UTIF.progress.message = 'Reading';
+		for(var j=0; j<len; j++) {
+			tgt[toff+j] = data[off+j];
+			UTIF.progress.update(j);
+		}
+	}
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
 	else if(cmpr==7) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
-	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
+	else if(cmpr==8) {
+		UTIF.progress.message = 'Decoding (inflate)';
+		var src = new Uint8Array(data.buffer,off,len);
+		var bin = pako["inflate"](src);
+		for(var i=0; i<bin.length; i++) {
+			tgt[toff+i]=bin[i];
+			UTIF.progress.update(i);
+		}
+	}
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff);
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
 	//else if(cmpr==34713) UTIF.decode._decodeNikon   (data, off, len, tgt, toff);
@@ -176,6 +298,8 @@ UTIF.decode._decodeNikon = function(data, off, len, tgt, toff)
 
 UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 {
+	UTIF.progress.message = 'Decoding (jpeg)';
+	UTIF.progress.update(off);
 	//throw "e";
 	//console.log("_decodeNewJPEG", off, toff);
     if (typeof JpegDecoder=="undefined") { log("jpg.js required for handling JPEG compressed images");  return;  }
@@ -230,6 +354,8 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 
 UTIF.decode._decodePackBits = function(data, off, len, tgt, toff)
 {
+	UTIF.progress.message = 'Decoding (packbits)';
+	UTIF.progress.update(off);
 	var sa = new Int8Array(data.buffer), ta = new Int8Array(tgt.buffer), lim = off+len;
 	while(off<lim) {
 		var n = sa[off];  off++;
@@ -239,6 +365,8 @@ UTIF.decode._decodePackBits = function(data, off, len, tgt, toff)
 }
 UTIF.decode._decodeThunder = function(data, off, len, tgt, toff)
 {
+	UTIF.progress.message = 'Decoding (thunder)';
+	UTIF.progress.update(off);
 	var d2 = [ 0, 1, 0, -1 ],  d3 = [ 0, 1, 2, 3, 0, -3, -2, -1 ];
 	var lim = off+len, qoff = toff*2, px = 0;
 	while(off<lim) {
@@ -282,6 +410,8 @@ UTIF.decode._lens = ( function() {
 
 UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w, fo)
 {
+	UTIF.progress.message = 'Decoding (G4)';
+	UTIF.progress.update(off);
 	var U = UTIF.decode, boff=off<<3, len=0, wrd="";	// previous starts with 1
 	var line=[], pline=[];  for(var i=0; i<w; i++) pline.push(0);  pline=U._makeDiff(pline);
 	var a0=0, a1=0, a2=0, b1=0, b2=0, clr=0;
@@ -322,6 +452,8 @@ UTIF.decode._makeDiff = function(line) {
 }
 UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 {
+	UTIF.progress.message = 'Decoding (G3)';
+	UTIF.progress.update(off);
 	var U = UTIF.decode, boff=off<<3, len=0, wrd="";
 	var line=[], pline=[];  for(var i=0; i<w; i++) line.push(0);
 	var a0=0, a1=0, a2=0, b1=0, b2=0, clr=0;
@@ -377,6 +509,8 @@ UTIF.decode._writeBits = function(bits, tgt, boff)
 
 UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 {
+	UTIF.progress.message = 'Decoding (LZW)';
+	UTIF.progress.update(off);
 	if(UTIF.decode._lzwTab==null) {
 		var tb=new Uint32Array(0xffff), tn=new Uint16Array(0xffff), chr=new Uint8Array(2e6);  
 		for(var i=0; i<256; i++) { chr[i<<2]=i;  tb[i]=i<<2;  tn[i]=1;  }
