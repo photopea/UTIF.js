@@ -73,7 +73,7 @@ You should not save images into TIFF format in the 21st century. Save them as PN
 
 You can get updates on the progress of decoding a TIFF file by using event listeners:
 
-```
+```javascript
 var progressContainer = document.getElementById('progress');
 UTIF.addEventListener('progress', function(progress) {
     progressContainer.innerText = progress.message + ' ' +
