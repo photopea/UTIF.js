@@ -20,12 +20,21 @@ npm install utif
 * * `height`: the height of the image
 * * `data`: decompressed pixel data of the image
 * * `tXYZ`: other TIFF tags
+* * All the other TIFF tags which are present as a property of the object.
 
 TIFF files may have different number of channels and different color depth. The interpretation of `data` depends on many tags (see the [TIFF 6 specification](http://www.npes.org/pdf/TIFF-v6.pdf)).
 
 #### `UTIF.toRGBA8(img)`
 * `img`: TIFF image object (returned by UTIF.decode())
 * returns Uint8Array of the image in RGBA format, 8 bits per channel (ready to use in ctx.putImageData() etc.)
+
+#### `UTIF.getMetaData(buffer)`
+* `buffer`: ArrayBuffer containing TIFF or EXIF data
+* returns an array of "images" (or "layers", "pages"), the same as ```decode```, with just the metadata/tiff tags and no data property.
+
+getMetaData will return all the TIFF tags without actually decoding the image, allowing you to quickly get information about the file.
+
+This is useful for finding the dimensions, number of pages and resolution of an image, for example, before actually attempting to load the file (which can take a long time, especially for large compressed files).
 
 ### Example
 
@@ -41,6 +50,69 @@ xhr.open("GET", "my_image.tif");
 xhr.responseType = "arraybuffer";
 xhr.onload = imgLoaded;   xhr.send();
 ```
+
+### Example (loading meta data)
+
+```javascript
+function imgLoaded(e) {
+  var pages = UTIF.getMetaData(e.target.response);
+  var page = pages[0];
+  var resolution = typeof page.XResolution === 'undefined' ? 92 : page.XResolution; // Resolution
+  var units = typeof page.ResolutionUnit === 'undefined' ? 2 : page.ResolutionUnit; // The resolution unit
+  if (units === 3) {
+    // 3 = pixels per centimetre
+    // 2 = pixels per inch
+    // 1 = unknown
+    resolution = resolution/2.54; // To DPI instead of DPCM
+  }
+  var realWidth = page.width / resolution;
+  var realHeight = page.height / resolution;
+}
+
+var xhr = new XMLHttpRequest();
+xhr.open("GET", "my_image.tif");
+xhr.responseType = "arraybuffer";
+xhr.onload = imgLoaded;   xhr.send();
+```
+
+### Example (Using file input)
+
+```html
+<input type="file" id="file_input">
+```
+```javascript
+var fi = document.getElementById('file_input');
+fi.addEventListener('change', function(e) {
+    var files = e.target.files;
+    for (var i = 0, len = files.length; i < len; i++) {
+        readFile(files[i]);
+    }
+});
+
+function readFile(file) {
+    var fr = new FileReader();
+    fr.onload = function(e) {
+        var page = UTIF.decode(this.result)[0];
+        var rgba = UTIF.toRGBA8(page),
+            w    = page.width,
+            h    = page.height
+        ;
+        var cnv = document.createElement("canvas");
+        cnv.width  = w;
+        cnv.height = h;
+        var ctx  = cnv.getContext("2d"),
+            imgd = ctx.createImageData(w, h)
+        ;
+        for(var i=0, len = rgba.length; i<len; i++) {
+            imgd.data[i] = rgba[i];
+        }
+        ctx.putImageData(imgd,0,0);
+        document.body.appendChild(cnv);
+    }
+    fr.readAsArrayBuffer(file);
+}
+```
+
 ## Use TIFF images in HTML
 
 If you are not a programmer, you can use TIFF images directly inside the `<img>` element of HTML. Then, it is enough to call `UTIF.replaceIMG()` once at some point.
@@ -68,6 +140,26 @@ You should not save images into TIFF format in the 21st century. Save them as PN
 #### `UTIF.encode(ifds)`
 * `ifds`: array of IFDs (image file directories). An IFD is a JS object with properties "tXYZ" (where XYZ are TIFF tags)
 * returns ArrayBuffer of binary data. You can use it to encode EXIF data.
+
+## Progress Events
+
+You can get updates on the progress of decoding a TIFF file by using event listeners:
+
+```javascript
+var progressContainer = document.getElementById('progress');
+UTIF.addEventListener('progress', function(progress) {
+    progressContainer.innerText = progress.message + ' ' +
+        progress.current + '/' + progress.total + ' ' +
+        (progress.percent*100).toFixed(2) + '%';
+});
+UTIF.decode(buffer);
+```
+
+Your message would then look something like this:
+
+```html
+<div id="progress">Decoding (LZW) 512000/1024000 50.00%</div>
+```
 
 ## Dependencies
 TIFF format sometimes uses Inflate algorithm for compression (but it is quite rare). Right now, UTIF.js calls [Pako.js](https://github.com/nodeca/pako) for the Inflate method.
