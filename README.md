@@ -83,6 +83,12 @@ UTIF.addEventListener('progress', function(progress) {
 UTIF.decode(buffer);
 ```
 
+Your message would then look something like this:
+
+```html
+<div id="progress">Decoding (LZW) 512000/1024000 50.00%</div>
+```
+
 ## Dependencies
 TIFF format sometimes uses Inflate algorithm for compression (but it is quite rare). Right now, UTIF.js calls [Pako.js](https://github.com/nodeca/pako) for the Inflate method.
 TIFF format sometimes uses JPEG compression (but it is quite rare). Right now, UTIF.js calls "JpegDecoder" constructor, which comes from [pdf.js](https://github.com/mozilla/pdf.js). You can find it "separated" from pdf.js in libraries such as jpg.js.
