@@ -20,12 +20,21 @@ npm install utif
 * * `height`: the height of the image
 * * `data`: decompressed pixel data of the image
 * * `tXYZ`: other TIFF tags
+* * All the other TIFF tags which are present as a property of the object.
 
 TIFF files may have different number of channels and different color depth. The interpretation of `data` depends on many tags (see the [TIFF 6 specification](http://www.npes.org/pdf/TIFF-v6.pdf)).
 
 #### `UTIF.toRGBA8(img)`
 * `img`: TIFF image object (returned by UTIF.decode())
 * returns Uint8Array of the image in RGBA format, 8 bits per channel (ready to use in ctx.putImageData() etc.)
+
+#### `UTIF.getMetaData(buffer)`
+* `buffer`: ArrayBuffer containing TIFF or EXIF data
+* returns an array of "images" (or "layers", "pages").
+
+getMetaData will return all the TIFF tags without actually decoding the image.
+
+This is useful for finding the dimensions, number of pages and resolution of an image before actually attempting to load the file.
 
 ### Example
 
@@ -41,6 +50,31 @@ xhr.open("GET", "my_image.tif");
 xhr.responseType = "arraybuffer";
 xhr.onload = imgLoaded;   xhr.send();
 ```
+
+### Example (loading meta data)
+
+```javascript
+function imgLoaded(e) {
+  var pages = UTIF.getMetaData(e.target.response);
+  var page = pages[0];
+  var resolution = typeof page.XResolution === 'undefined' ? 92 : page.XResolution; // Resolution
+  var units = typeof page.ResolutionUnit === 'undefined' ? 2 : page.ResolutionUnit; // The resolution unit
+  if (units === 1) {
+    // 0 = unknown
+    // 1 = pixels per centimetre
+    // 2 = pixels per inch
+    resolution = resolution/2.54; // To DPI instead of DPCM
+  }
+  var realWidth = page.width / resolution;
+  var realHeight = page.height / resolution;
+}
+
+var xhr = new XMLHttpRequest();
+xhr.open("GET", "my_image.tif");
+xhr.responseType = "arraybuffer";
+xhr.onload = imgLoaded;   xhr.send();
+```
+
 ## Use TIFF images in HTML
 
 If you are not a programmer, you can use TIFF images directly inside the `<img>` element of HTML. Then, it is enough to call `UTIF.replaceIMG()` once at some point.
