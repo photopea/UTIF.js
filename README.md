@@ -59,10 +59,10 @@ function imgLoaded(e) {
   var page = pages[0];
   var resolution = typeof page.XResolution === 'undefined' ? 92 : page.XResolution; // Resolution
   var units = typeof page.ResolutionUnit === 'undefined' ? 2 : page.ResolutionUnit; // The resolution unit
-  if (units === 1) {
-    // 0 = unknown
-    // 1 = pixels per centimetre
+  if (units === 3) {
+    // 3 = pixels per centimetre
     // 2 = pixels per inch
+    // 1 = unknown
     resolution = resolution/2.54; // To DPI instead of DPCM
   }
   var realWidth = page.width / resolution;
