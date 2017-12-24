@@ -30,11 +30,11 @@ TIFF files may have different number of channels and different color depth. The 
 
 #### `UTIF.getMetaData(buffer)`
 * `buffer`: ArrayBuffer containing TIFF or EXIF data
-* returns an array of "images" (or "layers", "pages").
+* returns an array of "images" (or "layers", "pages"), the same as ```decode```, with just the metadata/tiff tags and no data property.
 
-getMetaData will return all the TIFF tags without actually decoding the image.
+getMetaData will return all the TIFF tags without actually decoding the image, allowing you to quickly get information about the file.
 
-This is useful for finding the dimensions, number of pages and resolution of an image before actually attempting to load the file.
+This is useful for finding the dimensions, number of pages and resolution of an image, for example, before actually attempting to load the file (which can take a long time, especially for large compressed files).
 
 ### Example
 
