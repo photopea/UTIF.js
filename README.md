@@ -75,6 +75,44 @@ xhr.responseType = "arraybuffer";
 xhr.onload = imgLoaded;   xhr.send();
 ```
 
+### Example (Using file input)
+
+```html
+<input type="file" id="file_input">
+```
+```javascript
+var fi = document.getElementById('file');
+fi.addEventListener('change', function(e) {
+    var files = e.target.files;
+    for (var i = 0, len = files.length; i < len; i++) {
+        readFile(files[i]);
+    }
+});
+
+function readFile(file) {
+    var fr = new FileReader();
+    fr.onload = function(e) {
+        var page = UTIF.decode(this.result)[0];
+        var rgba = UTIF.toRGBA8(page),
+            w    = page.width,
+            h    = page.height
+        ;
+        var cnv = document.createElement("canvas");
+        cnv.width  = w;
+        cnv.height = h;
+        var ctx  = cnv.getContext("2d"),
+            imgd = ctx.createImageData(w, h)
+        ;
+        for(var i=0, len = rgba.length; i<len; i++) {
+            imgd.data[i] = rgba[i];
+        }
+        ctx.putImageData(imgd,0,0);
+        document.body.appendChild(cnv);
+    }
+    fr.readAsArrayBuffer(file);
+}
+```
+
 ## Use TIFF images in HTML
 
 If you are not a programmer, you can use TIFF images directly inside the `<img>` element of HTML. Then, it is enough to call `UTIF.replaceIMG()` once at some point.
