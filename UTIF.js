@@ -157,6 +157,38 @@ UTIF.encode = function(ifds)
 }
 //UTIF.encode._writeIFD
 
+UTIF.getMetaData = function(buff)
+{
+    UTIF.decode._decodeG3.allow2D = null;
+    var data = new Uint8Array(buff), offset = 0;
+
+    var id = UTIF._binBE.readASCII(data, offset, 2);  offset+=2;
+    var bin = id=="II" ? UTIF._binLE : UTIF._binBE;
+    var num = bin.readUshort(data, offset);  offset+=2;
+
+    var ifdo = bin.readUint(data, offset);  offset+=4;
+    var ifds = [];
+    while(true)
+    {
+        var noff = UTIF._readIFD(bin, data, ifdo, ifds);
+        //var ifd = ifds[ifds.length-1];   if(ifd["t34665"]) {  ifd.exifIFD = [];  UTIF._readIFD(bin, data, ifd["t34665"][0], ifd.exifIFD);  }
+        ifdo = bin.readUint(data, noff);
+        if(ifdo==0) break;
+    }
+
+    if(ifds[0]["t256"]==null) return ifds;  // EXIF files don't have TIFF tags
+
+    for(var ii=0; ii<ifds.length; ii++)
+    {
+        var img = ifds[ii];
+        if(img["t256"]==null) continue; // EXIF files don't have TIFF tags
+        img.isLE   = id=="II";
+        img.width  = img["t256"][0];  //delete img["t256"];
+        img.height = img["t257"][0];  //delete img["t257"];
+    }
+    return ifds;
+}
+
 UTIF.decode = function(buff)
 {
 	UTIF.decode._decodeG3.allow2D = null;
