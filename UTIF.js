@@ -68,9 +68,15 @@ UTIF.decode = function(buff)
 		ifdo = bin.readUint(data, noff);
 		if(ifdo==0) break;
 	}
+	return ifds;
+}
 
-	if(ifds[0]["t256"]==null) return ifds;	// EXIF files don't have TIFF tags
 
+UTIF.decodeImages = function(buff, ifds)
+{
+	var data = new Uint8Array(buff);
+	var id = UTIF._binBE.readASCII(data, 0, 2);
+	
 	for(var ii=0; ii<ifds.length; ii++)
 	{
 		var img = ifds[ii];
