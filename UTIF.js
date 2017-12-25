@@ -599,7 +599,9 @@ UTIF.replaceIMG = function()
 UTIF._xhrs = [];  UTIF._imgs = [];
 UTIF._imgLoaded = function(e)
 {
-	var page = UTIF.decode(e.target.response)[0], rgba = UTIF.toRGBA8(page), w=page.width, h=page.height;
+	var buff = e.target.response;
+	var ifds = UTIF.decode(buff), page = ifds[0];  UTIF.decodeImages(buff, ifds);
+	var rgba = UTIF.toRGBA8(page), w=page.width, h=page.height;
 	var ind = UTIF._xhrs.indexOf(e.target), img = UTIF._imgs[ind];
 	UTIF._xhrs.splice(ind,1);  UTIF._imgs.splice(ind,1);
 	var cnv = document.createElement("canvas");  cnv.width=w;  cnv.height=h;
