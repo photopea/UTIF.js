@@ -121,7 +121,6 @@ UTIF.decodeImages = function(buff, ifds)
 		}
 		img.data = new Uint8Array(bytes.buffer, 0, Math.ceil(bilen/8)|0);
 	}
-	return ifds;
 }
 
 UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  // fill order
