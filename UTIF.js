@@ -524,7 +524,7 @@ UTIF._writeIFD = function(bin, data, offset, ifd)
 		bin.writeUshort(data, offset, type);  offset+=2;
 		bin.writeUint  (data, offset, num );  offset+=4;
 
-		var dlen = [-1, 1,1,2,4,8][type] * num;
+		var dlen = [-1, 1, 1, 2, 4, 8, 0, 0, 0, 0, 0, 0, 8][type] * num;
 		var toff = offset;
 		if(dlen>4) {  bin.writeUint(data, offset, eoff);  toff=eoff;  }
 
@@ -532,6 +532,7 @@ UTIF._writeIFD = function(bin, data, offset, ifd)
 		if(type==3) {  for(var i=0; i<num; i++) bin.writeUshort(data, toff+2*i, val[i]);    }
 		if(type==4) {  for(var i=0; i<num; i++) bin.writeUint  (data, toff+4*i, val[i]);    }
 		if(type==5) {  for(var i=0; i<num; i++) {  bin.writeUint(data, toff+8*i, Math.round(val[i]*10000));  bin.writeUint(data, toff+8*i+4, 10000);  }   }
+		if (type == 12) {  for (var i = 0; i < num; i++) bin.writeDouble(data, toff + 8 * i, val[i]); }
 
 		if(dlen>4) {  dlen += (dlen&1);  eoff += dlen;  }
 		offset += 4;
@@ -625,7 +626,13 @@ UTIF._binBE = {
 
 	writeUshort: function(buff, p, n) {  buff[p] = (n>> 8)&255;  buff[p+1] =  n&255;  },
 	writeUint  : function(buff, p, n) {  buff[p] = (n>>24)&255;  buff[p+1] = (n>>16)&255;  buff[p+2] = (n>>8)&255;  buff[p+3] = (n>>0)&255;  },
-	writeASCII : function(buff, p, s) {  for(var i = 0; i < s.length; i++)  buff[p+i] = s.charCodeAt(i);  }
+	writeASCII : function(buff, p, s) {  for(var i = 0; i < s.length; i++)  buff[p+i] = s.charCodeAt(i);  },
+	writeDouble: function(buff, p, n) {
+		UTIF._binBE.fl64[0] = n;
+		for (var i = 0; i < 8; i++) {
+	  		buff[p + i] = UTIF._binBE.ui8[7 - i];
+		}
+	}
 }
 UTIF._binBE.ui8  = new Uint8Array  (8);
 UTIF._binBE.i16  = new Int16Array  (UTIF._binBE.ui8.buffer);
