@@ -590,7 +590,8 @@ UTIF.replaceIMG = function()
 {
 	var imgs = document.getElementsByTagName("img");
 	for (var i=0; i<imgs.length; i++) {
-		var img=imgs[i], src=img.getAttribute("src"), suff=src.split(".").pop().toLowerCase();
+		var img=imgs[i], src=img.getAttribute("src");  if(src==null) continue;
+		var suff=src.split(".").pop().toLowerCase();
 		if(suff!="tif" && suff!="tiff") continue;
 		var xhr = new XMLHttpRequest();  UTIF._xhrs.push(xhr);  UTIF._imgs.push(img);
 		xhr.open("GET", src);  xhr.responseType = "arraybuffer";
