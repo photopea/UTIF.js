@@ -106,7 +106,9 @@ UTIF.decodeImages = function(buff, ifds)
 				{
 					var i = y*tx+x;  for(var j=0; j<tbuff.length; j++) tbuff[j]=0;
 					UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, tbuff, 0, fo);
-					UTIF._copyTile(tbuff, Math.ceil(tw*bipp/8)|0, th, bytes, Math.ceil(img.width*bipp/8)|0, img.height, Math.ceil(x*tw*bipp/8)|0, y*th);
+					// Might be required for 7 too. Need to check
+					if (cmpr==6) bytes = tbuff;
+					else UTIF._copyTile(tbuff, Math.ceil(tw*bipp/8)|0, th, bytes, Math.ceil(img.width*bipp/8)|0, img.height, Math.ceil(x*tw*bipp/8)|0, y*th);
 				}
 			bilen = bytes.length*8;
 		}
@@ -131,6 +133,7 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
+	else if(cmpr==6) UTIF.decode._decodeOldJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==7) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff);
@@ -184,8 +187,6 @@ UTIF.decode._decodeNikon = function(data, off, len, tgt, toff)
 
 UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 {
-	//throw "e";
-	//log("_decodeNewJPEG", off, toff);
 	if (typeof JpegDecoder=="undefined") { log("jpg.js required for handling JPEG compressed images");  return;  }
 
 	var tables = img["t347"], tlen = tables ? tables.length : 0, buff = new Uint8Array(tlen + len);
@@ -228,9 +229,203 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 		for (var i=0; i<decoded.length; i++) tgt[toff + i] = decoded[i];
 	}
 
-    // PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
-    // RGB format, so updating the tag value
-    if(img["t262"][0] == 6)  img["t262"][0] = 2;
+	// PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
+	// RGB format, so updating the tag value
+	if(img["t262"][0] == 6)  img["t262"][0] = 2;
+}
+
+UTIF.decode._decodeOldJPEGInit = function(img, data, off, len)
+{
+	var SOI = 216, EOI = 217, DQT = 219, DHT = 196, DRI = 221, SOF0 = 192, SOS = 218;
+	var joff = 0, soff = 0, tables, sosMarker, isTiled = false, i, j, k;
+	var jpgIchgFmt    = img["t513"], jifoff = jpgIchgFmt ? jpgIchgFmt[0] : 0;
+	var jpgIchgFmtLen = img["t514"], jiflen = jpgIchgFmtLen ? jpgIchgFmtLen[0] : 0;
+	var soffTag       = img["t324"] || img["t273"] || jpgIchgFmt;
+	var ycbcrss       = img["t530"], ssx = 0, ssy = 0;
+	var spp           = img["t277"]?img["t277"][0]:1;
+	var jpgresint     = img["t515"];
+
+	if(soffTag)
+	{
+		soff = soffTag[0];
+		isTiled = (soffTag.length > 1);
+	}
+
+	if(!isTiled)
+	{
+		if(data[off]==255 && data[off+1]==SOI) return { jpegOffset: off };
+		if(jpgIchgFmt!=null)
+		{
+			if(data[off+jifoff]==255 && data[off+jifoff+1]==SOI) joff = off+jifoff;
+			else log("JPEGInterchangeFormat does not point to SOI");
+
+			if(jpgIchgFmtLen==null) log("JPEGInterchangeFormatLength field is missing");
+			else if(jifoff >= soff || (jifoff+jiflen) <= soff) log("JPEGInterchangeFormatLength field value is invalid");
+
+			if(joff != null) return { jpegOffset: joff };
+		}
+	}
+
+	if(ycbcrss!=null) {  ssx = ycbcrss[0];  ssy = ycbcrss[1];  }
+
+	if(jpgIchgFmt!=null)
+		if(jpgIchgFmtLen!=null)
+			if(jiflen >= 2 && (jifoff+jiflen) <= soff)
+			{
+				if(data[off+jifoff+jiflen-2]==255 && data[off+jifoff+jiflen-1]==SOI) tables = new Uint8Array(jiflen-2);
+				else tables = new Uint8Array(jiflen);
+
+				for(i=0; i<tables.length; i++) tables[i] = data[off+jifoff+i];
+				log("Incorrect JPEG interchange format: using JPEGInterchangeFormat offset to derive tables");
+			}
+			else log("JPEGInterchangeFormat+JPEGInterchangeFormatLength > offset to first strip or tile");
+
+	if(tables == null)
+	{
+		var ooff = 0, out = [];
+		out[ooff++] = 255; out[ooff++] = SOI;
+
+		var qtables = img["t519"];
+		if(qtables==null) throw "JPEGQTables tag is missing";
+		for(i=0; i<qtables.length; i++)
+		{
+			out[ooff++] = 255; out[ooff++] = DQT; out[ooff++] = 0; out[ooff++] = 67; out[ooff++] = i;
+			for(j=0; j<64; j++) out[ooff++] = data[off+qtables[i]+j];
+		}
+
+		for(k=0; k<2; k++)
+		{
+			var htables = img[(k == 0) ? "t520" : "t521"];
+			if(htables==null) throw (((k == 0) ? "JPEGDCTables" : "JPEGACTables") + " tag is missing");
+			for(i=0; i<htables.length; i++)
+			{
+				out[ooff++] = 255; out[ooff++] = DHT;
+				//out[ooff++] = 0; out[ooff++] = 67; out[ooff++] = i;
+				var nc = 19;
+				for(j=0; j<16; j++) nc += data[off+htables[i]+j];
+
+				out[ooff++] = (nc >>> 8); out[ooff++] = nc & 255;
+				out[ooff++] = (i | (k << 4));
+				for(j=0; j<16; j++) out[ooff++] = data[off+htables[i]+j];
+				for(j=0; j<nc; j++) out[ooff++] = data[off+htables[i]+16+j];
+			}
+		}
+
+		out[ooff++] = 255; out[ooff++] = SOF0;
+		out[ooff++] = 0;  out[ooff++] = 8 + 3*spp;  out[ooff++] = 8;
+		out[ooff++] = (img.height >>> 8) & 255;  out[ooff++] = img.height & 255;
+		out[ooff++] = (img.width  >>> 8) & 255;  out[ooff++] = img.width  & 255;
+		out[ooff++] = spp;
+		if(spp==1) {  out[ooff++] = 1;  out[ooff++] = 17;  out[ooff++] = 0;  }
+		else for(i=0; i<3; i++)
+		{
+			out[ooff++] = i + 1;
+			out[ooff++] = (i != 0) ? 17 : (((ssx & 15) << 4) | (ssy & 15));
+			out[ooff++] = i;
+		}
+
+		if(jpgresint!=null && jpgresint[0]!=0)
+		{
+			out[ooff++] = 255;  out[ooff++] = DRI;  out[ooff++] = 0;  out[ooff++] = 4;
+			out[ooff++] = (jpgresint[0] >>> 8) & 255;
+			out[ooff++] = jpgresint[0] & 255;
+		}
+
+		tables = new Uint8Array(out);
+	}
+
+	var sofpos = -1;
+	i = 0;
+	while(i < (tables.length - 1)) {
+		if(tables[i]==255 && tables[i+1]==SOF0) {  sofpos = i; break;  }
+		i++;
+	}
+
+	if(sofpos == -1)
+	{
+		var tmptab = new Uint8Array(tables.length + 10 + 3*spp);
+		tmptab.set(tables);
+		var tmpoff = tables.length;
+		sofpos = tables.length;
+		tables = tmptab;
+
+		tables[tmpoff++] = 255; tables[tmpoff++] = SOF0;
+		tables[tmpoff++] = 0;  tables[tmpoff++] = 8 + 3*spp;  tables[tmpoff++] = 8;
+		tables[tmpoff++] = (img.height >>> 8) & 255;  tables[tmpoff++] = img.height & 255;
+		tables[tmpoff++] = (img.width  >>> 8) & 255;  tables[tmpoff++] = img.width  & 255;
+		tables[tmpoff++] = spp;
+		if(spp==1) {  tables[tmpoff++] = 1;  tables[tmpoff++] = 17;  tables[tmpoff++] = 0;  }
+		else for(i=0; i<3; i++)
+		{
+			tables[tmpoff++] = i + 1;
+			tables[tmpoff++] = (i != 0) ? 17 : (((ssx & 15) << 4) | (ssy & 15));
+			tables[tmpoff++] = i;
+		}
+	}
+
+	if(data[soff]==255 && data[soff+1]==SOS)
+	{
+		var soslen = (data[soff+2]<<8) | data[soff+3];
+		sosMarker = new Uint8Array(soslen+2);
+		sosMarker[0] = data[soff];  sosMarker[1] = data[soff+1]; sosMarker[2] = data[soff+2];  sosMarker[3] = data[soff+3];
+		for(i=0; i<(soslen-2); i++) sosMarker[i+4] = data[soff+i+4];
+	}
+	else
+	{
+		sosMarker = new Uint8Array(2 + 6 + 2*spp);
+		var sosoff = 0;
+		sosMarker[sosoff++] = 255;  sosMarker[sosoff++] = SOS;
+		sosMarker[sosoff++] = 0;  sosMarker[sosoff++] = 6 + 2*spp;  sosMarker[sosoff++] = spp;
+		if(spp==1) {  sosMarker[sosoff++] = 1;  sosMarker[sosoff++] = 0;  }
+		else for(i=0; i<3; i++)
+		{
+			sosMarker[sosoff++] = i+1;  sosMarker[sosoff++] = (i << 4) | i;
+		}
+		sosMarker[sosoff++] = 0;  sosMarker[sosoff++] = 63;  sosMarker[sosoff++] = 0;
+	}
+
+	return { jpegOffset: off, tables: tables, sosMarker: sosMarker, sofPosition: sofpos };
+}
+
+UTIF.decode._decodeOldJPEG = function(img, data, off, len, tgt, toff)
+{
+	if(typeof JpegDecoder=="undefined") { log("jpg.js required for handling JPEG compressed images");  return;  }
+
+	var i, dlen, tlen, buff, buffoff;
+	var jpegData = UTIF.decode._decodeOldJPEGInit(img, data, off, len);
+
+	if(jpegData.jpegOffset!=null)
+	{
+		dlen = off+len-jpegData.jpegOffset;
+		buff = new Uint8Array(dlen);
+		for(i=0; i<dlen; i++) buff[i] = data[jpegData.jpegOffset+i];
+	}
+	else
+	{
+		tlen = jpegData.tables.length;
+		buff = new Uint8Array(tlen + jpegData.sosMarker.length + len + 2);
+		buff.set(jpegData.tables);
+		buffoff = tlen;
+
+		buff[jpegData.sofPosition+5] = (img.height >>> 8) & 255;  buff[jpegData.sofPosition+6] = img.height & 255;
+		buff[jpegData.sofPosition+7] = (img.width  >>> 8) & 255;  buff[jpegData.sofPosition+8] = img.width  & 255;
+
+		if(data[off]!=255 || data[off+1]!=SOS)
+		{
+			buff.set(jpegData.sosMarker, bufoff);
+			bufoff += sosMarker.length;
+		}
+		for(i=0; i<len; i++) buff[bufoff++] = data[off+i];
+		buff[bufoff++] = 255;  buff[bufoff++] = EOI;
+	}
+
+	var parser = new JpegDecoder();  parser.parse(buff);
+	var decoded = parser.getData(parser.width, parser.height);
+	for (var i=0; i<decoded.length; i++) tgt[toff + i] = decoded[i];
+
+	// PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
+	// RGB format, so updating the tag value
+	if(img["t262"][0] == 6)  img["t262"][0] = 2;
 }
 
 UTIF.decode._decodePackBits = function(data, off, len, tgt, toff)
