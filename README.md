@@ -2,7 +2,7 @@
 A small, fast and advanced TIFF / EXIF (+ DNG and other TIFF-ish files) decoder and encoder. It is the main TIFF library for [Photopea image editor](https://www.photopea.com). Try to open your TIFF file with Photopea to see, if UTIF.js can parse it.
 
 * Supports Black & White, Grayscale, RGB and Paletted images
-* Supports Fax 3 and Fax 4 (CCITT), LZW, PackBits and other compressions
+* Supports Fax 3 and Fax 4 (CCITT), JPEG, LZW, PackBits and other compressions (1,3,4,5,6,7,8,32773,32809)
 * E.g. [this 8 MPix image](//www.photopea.com/api/img/G4.TIF) with Fax 4 compression is just 56 kB ( [Open in Photopea](https://www.photopea.com?p=%7B%22files%22:%5B%22//www.photopea.com/api/img/G4.TIF%22%5D%7D) )
 
 ## Installation
