@@ -20,13 +20,8 @@ UTIF.encodeImage = function(rgba, w, h, metadata)
 				"t277":[4], "t278":[h], /* rows per strip */          "t279":[w*h*4], // strip byte counts
 				"t282":[1], "t283":[1], "t284":[1], "t286":[0], "t287":[0], "t296":[1], "t305": ["Photopea (UTIF.js)"], "t338":[1]
 		};
-	if (metadata)
-	{
-		for (var i in metadata)
-		{
-			idf[i] = metadata[i];
-		}
-	}
+	if (metadata) for (var i in metadata) idf[i] = metadata[i];
+	
 	var prfx = new Uint8Array(UTIF.encode([idf]));
 	var img = new Uint8Array(rgba);
 	var data = new Uint8Array(1000+w*h*4);
@@ -86,7 +81,7 @@ UTIF.decodeImages = function(buff, ifds)
 		img.width  = img["t256"][0];  //delete img["t256"];
 		img.height = img["t257"][0];  //delete img["t257"];
 
-		var cmpr   = img["t259"][0];  //delete img["t259"];
+		var cmpr   = img["t259"] ? img["t259"][0] : 1;  //delete img["t259"];
 		var fo = img["t266"] ? img["t266"][0] : 1;  //delete img["t266"];
 		if(img["t284"] && img["t284"][0]==2) log("PlanarConfiguration 2 should not be used!");
 
@@ -118,7 +113,7 @@ UTIF.decodeImages = function(buff, ifds)
 			for(var i=0; i<soff.length; i++)
 			{
 				UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, bytes, Math.ceil(bilen/8)|0, fo);
-				bilen += (img.width * bipp * rps);
+				bilen += Math.ceil(img.width * bipp /8) * 8 * rps;
 			}
 			bilen = Math.min(bilen, bytes.length*8);
 		}
@@ -491,6 +486,7 @@ UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w, fo)
 	var line=[], pline=[];  for(var i=0; i<w; i++) pline.push(0);  pline=U._makeDiff(pline);
 	var a0=0, a1=0, a2=0, b1=0, b2=0, clr=0;
 	var y=0, mode="", toRead=0;
+	var bipl = Math.ceil(w/8)*8;
 
 	while((boff>>>3)<off+slen)
 	{
@@ -515,7 +511,7 @@ UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w, fo)
 		}
 		if(line.length==w && mode=="")
 		{
-			U._writeBits(line, tgt, toff*8+y*w);
+			U._writeBits(line, tgt, toff*8+y*bipl);
 			clr=0;  y++;  a0=0;
 			pline=U._makeDiff(line);  line=[];
 		}
@@ -538,6 +534,7 @@ UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 	var line=[], pline=[];  for(var i=0; i<w; i++) line.push(0);
 	var a0=0, a1=0, a2=0, b1=0, b2=0, clr=0;
 	var y=-1, mode="", toRead=0, is1D=false;
+	var bipl = Math.ceil(w/8)*8;
 	while((boff>>>3)<off+slen)
 	{
 		b1 = U._findDiff(pline, a0+(a0==0?0:1), 1-clr), b2 = U._findDiff(pline, b1, clr);	// could be precomputed
@@ -573,7 +570,7 @@ UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 		}
 		if(wrd.endsWith("000000000001")) // needed for some files
 		{
-			if(y>=0) U._writeBits(line, tgt, toff*8+y*w);
+			if(y>=0) U._writeBits(line, tgt, toff*8+y*bipl);
 			if(fo==1) is1D = ((data[boff>>>3]>>>(7-(boff&7)))&1)==1;
 			if(fo==2) is1D = ((data[boff>>>3]>>>(  (boff&7)))&1)==1;
 			boff++;
@@ -584,7 +581,7 @@ UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 			pline=U._makeDiff(line);  line=[];
 		}
 	}
-	if(line.length==w) U._writeBits(line, tgt, toff*8+y*w);
+	if(line.length==w) U._writeBits(line, tgt, toff*8+y*bipl);
 }
 
 UTIF.decode._addNtimes = function(arr, n, val) {  for(var i=0; i<n; i++) arr.push(val);  }
@@ -775,16 +772,24 @@ UTIF.toRGBA8 = function(out)
 	if(false) {}
 	else if(intp==0)
 	{
-		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-  (i&7)))& 1;  img[qi]=img[qi+1]=img[qi+2]=( 1-px)*255;  img[qi+3]=255;    }
-		if(bps== 4) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>1])>>(4-4*(i&1)))&15;  img[qi]=img[qi+1]=img[qi+2]=(15-px)* 17;  img[qi+3]=255;    }
-		if(bps== 8) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[i];  img[qi]=img[qi+1]=img[qi+2]=255-px;  img[qi+3]=255;    }
+		var bpl = Math.ceil(bps*w/8);
+		for(var y=0; y<h; y++) {
+			var off = y*bpl, io = y*w;
+			if(bps== 1) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>3)])>>(7-  (i&7)))& 1;  img[qi]=img[qi+1]=img[qi+2]=( 1-px)*255;  img[qi+3]=255;    }
+			if(bps== 4) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>1)])>>(4-4*(i&1)))&15;  img[qi]=img[qi+1]=img[qi+2]=(15-px)* 17;  img[qi+3]=255;    }
+			if(bps== 8) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i];  img[qi]=img[qi+1]=img[qi+2]=255-px;  img[qi+3]=255;    }
+		}
 	}
 	else if(intp==1)
 	{
-		if(bps== 1) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>3])>>(7-  (i&7)))&1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
-		if(bps== 2) for(var i=0; i<area; i++) {  var qi=i<<2, px=((data[i>>2])>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
-		if(bps== 8) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[i];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
-		if(bps==16) for(var i=0; i<area; i++) {  var qi=i<<2, px=data[2*i+isLE];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
+		var bpl = Math.ceil(bps*w/8);
+		for(var y=0; y<h; y++) {
+			var off = y*bpl, io = y*w;
+			if(bps== 1) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>3)])>>(7-  (i&7)))&1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
+			if(bps== 2) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>2)])>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
+			if(bps== 8) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
+			if(bps==16) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+(2*i+isLE)];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
+		}
 	}
 	else if(intp==2)
 	{
