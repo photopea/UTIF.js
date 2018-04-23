@@ -86,9 +86,10 @@ UTIF.decodeImages = function(buff, ifds)
 		if(img["t284"] && img["t284"][0]==2) log("PlanarConfiguration 2 should not be used!");
 
 		var bipp = (img["t258"]?Math.min(32,img["t258"][0]):1) * (img["t277"]?img["t277"][0]:1);  // bits per pixel
+		var bipl = Math.ceil(img.width*bipp/8)*8;
 		var soff = img["t273"];  if(soff==null) soff = img["t324"];
-		var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [Math.ceil(img.height*img.width*bipp/8)|0];  if(bcnt==null) bcnt = img["t325"];
-		var bytes = new Uint8Array(Math.ceil(img.width*img.height*bipp/8)|0), bilen = 0;
+		var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [img.height*(bipl>>>3)];  if(bcnt==null) bcnt = img["t325"];
+		var bytes = new Uint8Array(img.height*(bipl>>>3)), bilen = 0;
 
 		if(img["t322"]!=null) // tiled
 		{
@@ -113,7 +114,7 @@ UTIF.decodeImages = function(buff, ifds)
 			for(var i=0; i<soff.length; i++)
 			{
 				UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, bytes, Math.ceil(bilen/8)|0, fo);
-				bilen += Math.ceil(img.width * bipp /8) * 8 * rps;
+				bilen += bipl * rps;
 			}
 			bilen = Math.min(bilen, bytes.length*8);
 		}
