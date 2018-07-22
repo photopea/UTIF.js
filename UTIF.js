@@ -825,7 +825,12 @@ UTIF.toRGBA8 = function(out)
 	return img;
 }
 
-UTIF.replaceIMG = function()
+/**
+ * @param {object} options - Available options:
+ *   `complete` : callback function that will be executed each time replaceIMG() has complete replacing an image.
+ *                The signature is function(canvasElement, originalImageElement, xhrOnloadEvent)
+ */
+UTIF.replaceIMG = function(options)
 {
 	var imgs = document.getElementsByTagName("img");
 	for (var i=0; i<imgs.length; i++)
@@ -835,7 +840,13 @@ UTIF.replaceIMG = function()
 		if(suff!="tif" && suff!="tiff") continue;
 		var xhr = new XMLHttpRequest();  UTIF._xhrs.push(xhr);  UTIF._imgs.push(img);
 		xhr.open("GET", src);  xhr.responseType = "arraybuffer";
-		xhr.onload = UTIF._imgLoaded;   xhr.send();
+		xhr.onload = function(e) {
+			var canvas = UTIF._imgLoaded(e);
+			if (options && options.complete) {
+				options.complete(canvas, img, e);
+			}
+		};
+		xhr.send();
 	}
 }
 
@@ -853,6 +864,7 @@ UTIF._imgLoaded = function(e)
 	var attr = ["style","class","id"];
 	for(var i=0; i<attr.length; i++) cnv.setAttribute(attr[i], img.getAttribute(attr[i]));
 	img.parentNode.replaceChild(cnv,img);
+	return cnv;
 }
 
 
