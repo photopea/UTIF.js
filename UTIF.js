@@ -829,6 +829,8 @@ UTIF.toRGBA8 = function(out)
  * @param {object} options - Available options:
  *   `complete` : callback function that will be executed each time replaceIMG() has complete replacing an image.
  *                The signature is function(canvasElement, originalImageElement, xhrOnloadEvent)
+ *   `isTiffCallback` : callback function that will determine if a given image src attribute (URL) is a TIFF file.
+ *                      The signature is function(url)
  */
 UTIF.replaceIMG = function(options)
 {
@@ -836,8 +838,16 @@ UTIF.replaceIMG = function(options)
 	for (var i=0; i<imgs.length; i++)
 	{
 		var img=imgs[i], src=img.getAttribute("src");  if(src==null) continue;
-		var suff=src.split(".").pop().toLowerCase();
-		if(suff!="tif" && suff!="tiff") continue;
+		if (options && options.isTiffCallback && !options.isTiffCallback(src)) {  //in case tif(f) is not mentioned in the URL allow a callback function to determine it
+			continue;
+		} else if (src.indexOf('?') > -1) {  //in case a query string has been appended the standard method below doesn't work
+			if (new RegExp("\.tiff?\?", "i").test(src) == false) {
+				continue;
+			}
+		} else {
+			var suff=src.split(".").pop().toLowerCase();
+			if(suff!="tif" && suff!="tiff") continue;
+		}
 		var xhr = new XMLHttpRequest();  UTIF._xhrs.push(xhr);  UTIF._imgs.push(img);
 		xhr.open("GET", src);  xhr.responseType = "arraybuffer";
 		xhr.onload = function(e) {
