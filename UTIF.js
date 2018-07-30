@@ -7,7 +7,7 @@ if (typeof module == "object") {module.exports = UTIF;}
 else {self.UTIF = UTIF;}
 
 var zlib, JpegDecoder;
-if (typeof require == "function") {zlib = require("zlib"); JpegDecoder = require("jpgjs").JpegDecoder;}
+if (typeof require == "function") {zlib = require("zlib"); JpegDecoder = require("jpeg-js");}
 else {zlib = self.zlib; JpegDecoder = self.JpegDecoder;}
 
 function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="development") console.log.apply(console, arguments);  }
@@ -183,7 +183,7 @@ UTIF.decode._decodeNikon = function(data, off, len, tgt, toff)
 
 UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 {
-	if (typeof JpegDecoder=="undefined") { log("jpg.js required for handling JPEG compressed images");  return;  }
+	if (typeof JpegDecoder=="undefined") { log("jpeg-js required for handling JPEG compressed images");  return;  }
 
 	var tables = img["t347"], tlen = tables ? tables.length : 0, buff = new Uint8Array(tlen + len);
 
@@ -220,8 +220,7 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 	}
 	else
 	{
-		var parser = new JpegDecoder();  parser.parse(buff);
-		var decoded = parser.getData(parser.width, parser.height);
+		var decoded = JpegDecoder.decode(buff).data;
 		for (var i=0; i<decoded.length; i++) tgt[toff + i] = decoded[i];
 	}
 
@@ -415,8 +414,7 @@ UTIF.decode._decodeOldJPEG = function(img, data, off, len, tgt, toff)
 		buff[bufoff++] = 255;  buff[bufoff++] = EOI;
 	}
 
-	var parser = new JpegDecoder();  parser.parse(buff);
-	var decoded = parser.getData(parser.width, parser.height);
+	var decoded = JpegDecoder.decode(buff);
 	for (var i=0; i<decoded.length; i++) tgt[toff + i] = decoded[i];
 
 	// PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
