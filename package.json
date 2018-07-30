@@ -19,7 +19,6 @@
     "conversion"
   ],
   "dependencies": {
-    "jpgjs": "github:makr28/jpgjs",
-    "pako": "^1.0.5"
+    "jpgjs": "github:makr28/jpgjs"
   }
 }
