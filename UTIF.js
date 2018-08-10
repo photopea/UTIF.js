@@ -6,13 +6,13 @@ var UTIF = {};
 if (typeof module == "object") {module.exports = UTIF;}
 else {self.UTIF = UTIF;}
 
-var pako, JpegDecoder;
-if (typeof require == "function") {pako = require("pako"); JpegDecoder = require("jpgjs").JpegDecoder;}
-else {pako = self.pako; JpegDecoder = self.JpegDecoder;}
+var zlib, JpegDecoder;
+if (typeof require == "function") {zlib = require("zlib"); JpegDecoder = require("jpeg-js");}
+else {zlib = self.zlib; JpegDecoder = self.JpegDecoder;}
 
 function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="development") console.log.apply(console, arguments);  }
 
-(function(UTIF, pako, JpegDecoder){
+(function(UTIF, zlib, JpegDecoder){
 
 UTIF.encodeImage = function(rgba, w, h, metadata)
 {
@@ -131,7 +131,7 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
 	else if(cmpr==6) UTIF.decode._decodeOldJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==7) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
-	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
+	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = zlib["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff);
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
 	//else if(cmpr==34713) UTIF.decode._decodeNikon   (data, off, len, tgt, toff);
@@ -183,7 +183,7 @@ UTIF.decode._decodeNikon = function(data, off, len, tgt, toff)
 
 UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 {
-	if (typeof JpegDecoder=="undefined") { log("jpg.js required for handling JPEG compressed images");  return;  }
+	if (typeof JpegDecoder=="undefined") { log("jpeg-js required for handling JPEG compressed images");  return;  }
 
 	var tables = img["t347"], tlen = tables ? tables.length : 0, buff = new Uint8Array(tlen + len);
 
@@ -220,8 +220,7 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 	}
 	else
 	{
-		var parser = new JpegDecoder();  parser.parse(buff);
-		var decoded = parser.getData(parser.width, parser.height);
+		var decoded = JpegDecoder.decode(buff).data;
 		for (var i=0; i<decoded.length; i++) tgt[toff + i] = decoded[i];
 	}
 
@@ -415,8 +414,7 @@ UTIF.decode._decodeOldJPEG = function(img, data, off, len, tgt, toff)
 		buff[bufoff++] = 255;  buff[bufoff++] = EOI;
 	}
 
-	var parser = new JpegDecoder();  parser.parse(buff);
-	var decoded = parser.getData(parser.width, parser.height);
+	var decoded = JpegDecoder.decode(buff);
 	for (var i=0; i<decoded.length; i++) tgt[toff + i] = decoded[i];
 
 	// PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
@@ -912,5 +910,5 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 	}
 }
 
-})(UTIF, pako, JpegDecoder);
+})(UTIF, zlib, JpegDecoder);
 })();
