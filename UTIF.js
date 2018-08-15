@@ -216,7 +216,7 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 		if(false) {}
 		else if(bps==16) for(var i=0; i<olen; i++) {  tgt[toff++] = (out[i]&255);  tgt[toff++] = (out[i]>>>8);  }
 		else if(bps==12) for(var i=0; i<olen; i+=2) {  tgt[toff++] = (out[i]>>>4);  tgt[toff++] = ((out[i]<<4)|(out[i+1]>>>8))&255;  tgt[toff++] = out[i+1]&255;  }
-		else throw "unsupported bit depth "+bps;
+		else throw new Error("unsupported bit depth "+bps);
 	}
 	else
 	{
@@ -282,7 +282,7 @@ UTIF.decode._decodeOldJPEGInit = function(img, data, off, len)
 		out[ooff++] = 255; out[ooff++] = SOI;
 
 		var qtables = img["t519"];
-		if(qtables==null) throw "JPEGQTables tag is missing";
+		if(qtables==null) throw new Error("JPEGQTables tag is missing");
 		for(i=0; i<qtables.length; i++)
 		{
 			out[ooff++] = 255; out[ooff++] = DQT; out[ooff++] = 0; out[ooff++] = 67; out[ooff++] = i;
@@ -292,7 +292,7 @@ UTIF.decode._decodeOldJPEGInit = function(img, data, off, len)
 		for(k=0; k<2; k++)
 		{
 			var htables = img[(k == 0) ? "t520" : "t521"];
-			if(htables==null) throw (((k == 0) ? "JPEGDCTables" : "JPEGACTables") + " tag is missing");
+			if(htables==null) throw new Error(((k == 0) ? "JPEGDCTables" : "JPEGACTables") + " tag is missing");
 			for(i=0; i<htables.length; i++)
 			{
 				out[ooff++] = 255; out[ooff++] = DHT;
@@ -742,7 +742,7 @@ UTIF._writeIFD = function(bin, data, offset, ifd)
 	for(var ki=0; ki<keys.length; ki++)
 	{
 		var key = keys[ki];
-		var tag = parseInt(key.slice(1)), type = UTIF.ttypes[tag];  if(type==null) throw "unknown type of tag: "+tag;
+		var tag = parseInt(key.slice(1)), type = UTIF.ttypes[tag];  if(type==null) throw new Error("unknown type of tag: "+tag);
 		var val = ifd[key];  if(type==2) val=val[0]+"\u0000";  var num = val.length;
 		bin.writeUshort(data, offset, tag );  offset+=2;
 		bin.writeUshort(data, offset, type);  offset+=2;
