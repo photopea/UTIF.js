@@ -7,7 +7,8 @@ if (typeof module == "object") {module.exports = UTIF;}
 else {self.UTIF = UTIF;}
 
 var pako, JpegDecoder;
-if (typeof require == "function") {pako = require("pako"); JpegDecoder = require("jpgjs").JpegDecoder;}
+if (typeof require == "function") {pako = require("pako"); JpegDecoder = require('pdfjs-dist/lib/core/jpg')
+.JpegImage;}
 else {pako = self.pako; JpegDecoder = self.JpegDecoder;}
 
 function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="development") console.log.apply(console, arguments);  }

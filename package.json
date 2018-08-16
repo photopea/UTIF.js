@@ -19,7 +19,7 @@
     "conversion"
   ],
   "dependencies": {
-    "jpgjs": "github:makr28/jpgjs",
-    "pako": "^1.0.5"
+    "pako": "^1.0.5",
+    "pdfjs-dist": "^2.0.489"
   }
 }
