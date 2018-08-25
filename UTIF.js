@@ -43,6 +43,7 @@ e-21.248923337353073*b+17.5119270841813)-b*(21.86122147463605*b+189.481808359227
 f*(10.49593273432072*f+63.02378494754052*e+50.606957656360734*b-112.23884253719248)+e*(.03296041114873217*e+115.60384449646641*b-193.58209356861505)-b*(22.33816807309886*b+180.12613974708367);return a.subarray(0,g)},getData:function(a,d,f){if(4<this.i)throw new D("Unsupported color mode");a=this.L(a,d);if(1===this.i&&f){f=a.length;d=new Uint8ClampedArray(3*f);for(var e=0,b=0;b<f;b++){var g=a[b];d[e++]=g;d[e++]=g;d[e++]=g}return d}if(3===this.i&&this.w())return this.I(a);if(4===this.i){if(this.w())return f?
 this.K(a):this.J(a);if(f)return this.H(a)}return a}}; UTIF.JpegDecoder=g})()})();
 
+//UTIF.JpegDecoder = window.JpegDecoder;
 
 UTIF.encodeImage = function(rgba, w, h, metadata)
 {
@@ -154,7 +155,7 @@ UTIF.decodeImages = function(buff, ifds)
 
 UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  // fill order
 {
-	console.log("compression", cmpr);
+	//console.log("compression", cmpr);
 	if(false) {}
 	else if(cmpr==1) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo);
@@ -215,7 +216,7 @@ UTIF.decode._decodeNikon = function(data, off, len, tgt, toff)
 UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 {
 	var tables = img["t347"], tlen = tables ? tables.length : 0, buff = new Uint8Array(tlen + len);
-
+	
 	if (tables)
 	{
 		var SOI = 216, EOI = 217, boff = 0;
@@ -692,7 +693,8 @@ UTIF.tags = {254:"NewSubfileType",255:"SubfileType",256:"ImageWidth",257:"ImageL
 			269:"DocumentName",270:"ImageDescription",271:"Make",272:"Model",273:"StripOffset",274:"Orientation",277:"SamplesPerPixel",278:"RowsPerStrip",
 			279:"StripByteCounts",280:"MinSampleValue",281:"MaxSampleValue",282:"XResolution",283:"YResolution",284:"PlanarConfiguration",285:"PageName",
 			286:"XPosition",287:"YPosition",
-			292:"T4Options",296:"ResolutionUnit",297:"PageNumber",305:"Software",306:"DateTime",315:"Artist",316:"HostComputer",317:"Predictor",320:"ColorMap",
+			292:"T4Options",296:"ResolutionUnit",297:"PageNumber",305:"Software",306:"DateTime",
+			315:"Artist",316:"HostComputer",317:"Predictor",318:"WhitePoint",319:"PrimaryChromaticities",320:"ColorMap",
 			321:"HalftoneHints",322:"TileWidth",
 			323:"TileLength",324:"TileOffset",325:"TileByteCounts",330:"SubIFDs",336:"DotRange",338:"ExtraSample",339:"SampleFormat", 347:"JPEGTables",
 			512:"JPEGProc",513:"JPEGInterchangeFormat",514:"JPEGInterchangeFormatLength",519:"JPEGQTables",520:"JPEGDCTables",521:"JPEGACTables",
@@ -739,12 +741,11 @@ UTIF._readIFD = function(bin, data, offset, ifds)
 		var arr = [];
 		ifd["t"+tag] = arr;
 		//ifd["t"+tag+"-"+UTIF.tags[tag]] = arr;
-		if(type== 1) {  for(var j=0; j<num; j++) arr.push(data[(num<5 ? offset-4 : voff)+j]); }
+		if(type== 1 || type==7) {  for(var j=0; j<num; j++) arr.push(data[(num<5 ? offset-4 : voff)+j]); }
 		if(type== 2) {  arr.push( bin.readASCII(data, (num<5 ? offset-4 : voff), num-1) );  }
 		if(type== 3) {  for(var j=0; j<num; j++) arr.push(bin.readUshort(data, (num<3 ? offset-4 : voff)+2*j));  }
 		if(type== 4) {  for(var j=0; j<num; j++) arr.push(bin.readUint  (data, (num<2 ? offset-4 : voff)+4*j));  }
 		if(type== 5) {  for(var j=0; j<num; j++) arr.push(bin.readUint  (data, voff+j*8) / bin.readUint(data,voff+j*8+4));  }
-		if(type== 7) {  var strt=(num<5 ? offset-4 : voff);  arr = data.slice(strt,strt+num);   }
 		if(type== 8) {  for(var j=0; j<num; j++) arr.push(bin.readShort (data, (num<3 ? offset-4 : voff)+2*j));  }
 		if(type== 9) {  for(var j=0; j<num; j++) arr.push(bin.readInt   (data, (num<2 ? offset-4 : voff)+4*j));  }
 		if(type==10) {  for(var j=0; j<num; j++) arr.push(bin.readInt   (data, voff+j*8) / bin.readInt (data,voff+j*8+4));  }
