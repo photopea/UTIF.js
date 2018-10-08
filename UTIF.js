@@ -850,7 +850,7 @@ UTIF.toRGBA8 = function(out)
 	var img = new Uint8Array(area*4);
 	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask, 5: CMYK
 	var intp = out["t262"][0], bps = (out["t258"]?Math.min(32,out["t258"][0]):1), isLE = out.isLE ? 1 : 0;
-	log("interpretation: ", intp, "bps", bps, out);
+	//log("interpretation: ", intp, "bps", bps, out);
 	if(false) {}
 	else if(intp==0)
 	{
