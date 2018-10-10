@@ -169,21 +169,33 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	//else if(cmpr==34713) //for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
 	//	UTIF.decode._decodeNikon   (img, data, off, len, tgt, toff);
 	else log("Unknown compression", cmpr);
+	
+	var bps = (img["t258"]?Math.min(32,img["t258"][0]):1);
+	var noc = (img["t277"]?img["t277"][0]:1), bpp=(bps*noc)>>>3, h = (img["t278"] ? img["t278"][0] : img.height), bpl = Math.ceil(bps*noc*img.width/8);
+	
+	// convert to Little Endian
+	if(bps==16 && !img.isLE)
+		for(var y=0; y<h; y++) {
+			var roff = toff+y*bpl;
+			for(var x=1; x<bpl; x+=2) {  var t=tgt[roff+x];  tgt[roff+x]=tgt[roff+x-1];  tgt[roff+x-1]=t;  }
+		}
 
 	if(img["t317"] && img["t317"][0]==2)
 	{
-		var noc = (img["t277"]?img["t277"][0]:1), h = (img["t278"] ? img["t278"][0] : img.height), bpr = img.width*noc;
-		//log(noc);
 		for(var y=0; y<h; y++)
 		{
-			var ntoff = toff+y*bpr;
-			if(noc==3) for(var j=  3; j<bpr; j+=3)
+			var ntoff = toff+y*bpl;
+			if(bps==16) for(var j=bpp; j<bpl; j+=2) {
+				var nv = ((tgt[ntoff+j+1]<<8)|tgt[ntoff+j])  +  ((tgt[ntoff+j-bpp+1]<<8)|tgt[ntoff+j-bpp]);
+				tgt[ntoff+j] = nv&255;  tgt[ntoff+j+1] = (nv>>>8)&255;  
+			}
+			else if(noc==3) for(var j=  3; j<bpl; j+=3)
 			{
 				tgt[ntoff+j  ] = (tgt[ntoff+j  ] + tgt[ntoff+j-3])&255;
 				tgt[ntoff+j+1] = (tgt[ntoff+j+1] + tgt[ntoff+j-2])&255;
 				tgt[ntoff+j+2] = (tgt[ntoff+j+2] + tgt[ntoff+j-1])&255;
 			}
-			else for(var j=noc; j<bpr; j++) tgt[ntoff+j] = (tgt[ntoff+j] + tgt[ntoff+j-noc])&255;
+			else for(var j=bpp; j<bpl; j++) tgt[ntoff+j] = (tgt[ntoff+j] + tgt[ntoff+j-bpp])&255;
 		}
 	}
 }
@@ -849,7 +861,7 @@ UTIF.toRGBA8 = function(out)
 	var w = out.width, h = out.height, area = w*h, qarea = area*4, data = out.data;
 	var img = new Uint8Array(area*4);
 	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask, 5: CMYK
-	var intp = out["t262"][0], bps = (out["t258"]?Math.min(32,out["t258"][0]):1), isLE = out.isLE ? 1 : 0;
+	var intp = out["t262"][0], bps = (out["t258"]?Math.min(32,out["t258"][0]):1);
 	//log("interpretation: ", intp, "bps", bps, out);
 	if(false) {}
 	else if(intp==0)
@@ -870,7 +882,7 @@ UTIF.toRGBA8 = function(out)
 			if(bps== 1) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>3)])>>(7-  (i&7)))&1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
 			if(bps== 2) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>2)])>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
 			if(bps== 8) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
-			if(bps==16) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+(2*i+isLE)];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
+			if(bps==16) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+(2*i+1)];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
 		}
 	}
 	else if(intp==2)
@@ -890,8 +902,7 @@ UTIF.toRGBA8 = function(out)
 			}
 		}
 		else{  // 3x 16-bit channel
-			var msb = out.isLE ? 1 : 0;
-			for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*6+msb;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=255;    }
+			for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*6+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=255;    }
 		}
 	}
 	else if(intp==3)
