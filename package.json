@@ -13,6 +13,7 @@
     "url": "https://github.com/photopea/UTIF.js/issues"
   },
   "main": "UTIF",
+  "types": "UTIF.d.ts",
   "keywords": [
     "tiff",
     "image",
