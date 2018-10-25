@@ -302,7 +302,19 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 
 	if(img["t262"]==32803) // lossless JPEG (used in DNG files) is not available in JpegDecoder.
 	{
-		var bps = img["t258"][0], dcdr = new LosslessJpegDecoder();
+		var bps = img["t258"][0];
+		var dcdr; 
+		try { 
+			// If node environment, require lossless-jpeg-decoder otherwise take global from window object
+			const LosslessJpegDecoder = (process && process.title === 'node')
+				? require('lossless-jpeg-decoder')
+				: window && window.LosslessJpegDecoder
+			dcdr = new LosslessJpegDecoder();
+		} catch (err) {
+			// catch error from invalid require statement or undefined decoder and output useful error stmt
+			throw new Error("In order to process DNG images you must include lossless-jpeg-decoder. Package should be installed (node) or included in script tag (browser)");
+		}
+			
 		var out = dcdr.decode(buff), olen=out.length;
 
 		if(false) {}
