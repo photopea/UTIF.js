@@ -887,22 +887,16 @@ UTIF.toRGBA8 = function(out)
 	}
 	else if(intp==2)
 	{
-		if(bps== 8) // this needs to be simplified ... how many channels are there???
+		var smpls = out["t258"]?out["t258"].length : 3;
+		
+		if(bps== 8) 
 		{
-			if(out["t338"])
-			{
-				 if(out["t338"][0]>0) for(var i=0; i<qarea; i++) img[i] = data[i];	// sometimes t338 is 1 or 2 in case of Alpha
-				 else  for(var i=0; i<qarea; i+=4) {  img[i] = data[i];  img[i+1] = data[i+1];  img[i+2] = data[i+2];  img[i+3] = 255;  }
-			}
-			else
-			{
-				var smpls = out["t258"]?out["t258"].length : 3;
-				if(smpls==4) for(var i=0; i<qarea; i++) img[i] = data[i];
-				if(smpls==3) for(var i=0; i< area; i++) {  var qi=i<<2, ti=i*3;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }
-			}
+			if(smpls==4) for(var i=0; i<qarea; i++) img[i] = data[i];
+			if(smpls==3) for(var i=0; i< area; i++) {  var qi=i<<2, ti=i*3;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }
 		}
 		else{  // 3x 16-bit channel
-			for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*6+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=255;    }
+			if(smpls==4) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*8+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=data[ti+6];    }
+			if(smpls==3) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*6+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=255;           }
 		}
 	}
 	else if(intp==3)
