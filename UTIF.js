@@ -16,8 +16,7 @@ else {pako = self.pako;}
 
 var LosslessJpegDecoder;
 try {
-	// If node environment, require lossless-jpeg-decoder otherwise take global from window object
-	if (typeof require === 'function') { LosslessJpegDecoder = require('lossless-jpeg-decoder') }
+	if (typeof require == 'function') { LosslessJpegDecoder = require('lossless-jpeg-decoder') }
 	else { LosslessJpegDecoder = window && window.LosslessJpegDecoder }
 } catch (e) { /* optional, so trap and ignore error*/}
 
