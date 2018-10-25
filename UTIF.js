@@ -5,6 +5,7 @@
 ;(function(){
 var UTIF = {};
 
+
 // Make available for import by `require()`
 if (typeof module == "object") {module.exports = UTIF;}
 else {self.UTIF = UTIF;}
@@ -12,6 +13,13 @@ else {self.UTIF = UTIF;}
 var pako;
 if (typeof require == "function") {pako = require("pako");}
 else {pako = self.pako;}
+
+var LosslessJpegDecoder;
+try {
+	// If node environment, require lossless-jpeg-decoder otherwise take global from window object
+	if (process && process.title === 'node') { LosslessJpegDecoder = require('lossless-jpeg-decoder') }
+	else { LosslessJpegDecoder = window && window.LosslessJpegDecoder }
+} catch (e) { /* optional, so trap and ignore error*/}
 
 function log() { if (typeof process=="undefined" || process.env.NODE_ENV=="development") console.log.apply(console, arguments);  }
 
@@ -304,14 +312,11 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 	{
 		var bps = img["t258"][0];
 		var dcdr; 
+		
+		// Try/catch is not essential, only adds improved error message if LosslessJpegDecoder is not be defined
 		try { 
-			// If node environment, require lossless-jpeg-decoder otherwise take global from window object
-			const LosslessJpegDecoder = (process && process.title === 'node')
-				? require('lossless-jpeg-decoder')
-				: window && window.LosslessJpegDecoder
 			dcdr = new LosslessJpegDecoder();
 		} catch (err) {
-			// catch error from invalid require statement or undefined decoder and output useful error stmt
 			throw new Error("In order to process DNG images you must include lossless-jpeg-decoder. Package should be installed (node) or included in script tag (browser)");
 		}
 			
