@@ -45,6 +45,7 @@ this.K(a):this.J(a);if(f)return this.H(a)}return a}}; UTIF.JpegDecoder=g})()})()
 
 //UTIF.JpegDecoder = PDFJS.JpegImage;
 
+
 UTIF.encodeImage = function(rgba, w, h, metadata)
 {
 	var idf = { "t256":[w], "t257":[h], "t258":[8,8,8,8], "t259":[1], "t262":[2], "t273":[1000], // strips offset
@@ -174,7 +175,7 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	var noc = (img["t277"]?img["t277"][0]:1), bpp=(bps*noc)>>>3, h = (img["t278"] ? img["t278"][0] : img.height), bpl = Math.ceil(bps*noc*img.width/8);
 	
 	// convert to Little Endian
-	if(bps==16 && !img.isLE)
+	if(bps==16 && !img.isLE && img["t33422"]==null)  // not DNG
 		for(var y=0; y<h; y++) {
 			var roff = toff+y*bpl;
 			for(var x=1; x<bpl; x+=2) {  var t=tgt[roff+x];  tgt[roff+x]=tgt[roff+x-1];  tgt[roff+x-1]=t;  }
@@ -302,11 +303,11 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 
 	if(img["t262"]==32803) // lossless JPEG (used in DNG files) is not available in JpegDecoder.
 	{
-		var bps = img["t258"][0], dcdr = new LosslessJpegDecoder();
-		var out = dcdr.decode(buff), olen=out.length;
-
+		var bps = img["t258"][0];//, dcdr = new LosslessJpegDecoder();
+		var out = UTIF.LosslessJpegDecode(buff), olen=out.length;
+		
 		if(false) {}
-		else if(bps==16) for(var i=0; i<olen; i++) {  tgt[toff++] = (out[i]&255);  tgt[toff++] = (out[i]>>>8);  }
+		else if(bps==16) for(var i=0; i<olen; i++ ) {  tgt[toff++] = (out[i]&255);  tgt[toff++] = (out[i]>>>8);  }
 		else if(bps==12) for(var i=0; i<olen; i+=2) {  tgt[toff++] = (out[i]>>>4);  tgt[toff++] = ((out[i]<<4)|(out[i+1]>>>8))&255;  tgt[toff++] = out[i+1]&255;  }
 		else throw new Error("unsupported bit depth "+bps);
 	}
@@ -751,43 +752,7 @@ UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 
 UTIF.decode._copyData = function(s,so,t,to,l) {  for(var i=0;i<l;i+=4) {  t[to+i]=s[so+i];  t[to+i+1]=s[so+i+1];  t[to+i+2]=s[so+i+2];  t[to+i+3]=s[so+i+3];  }  }
 
-UTIF.tags = {254:"NewSubfileType",255:"SubfileType",256:"ImageWidth",257:"ImageLength",258:"BitsPerSample",259:"Compression",262:"PhotometricInterpretation",266:"FillOrder",
-			269:"DocumentName",270:"ImageDescription",271:"Make",272:"Model",273:"StripOffset",274:"Orientation",277:"SamplesPerPixel",278:"RowsPerStrip",
-			279:"StripByteCounts",280:"MinSampleValue",281:"MaxSampleValue",282:"XResolution",283:"YResolution",284:"PlanarConfiguration",285:"PageName",
-			286:"XPosition",287:"YPosition",
-			292:"T4Options",296:"ResolutionUnit",297:"PageNumber",305:"Software",306:"DateTime",
-			315:"Artist",316:"HostComputer",317:"Predictor",318:"WhitePoint",319:"PrimaryChromaticities",320:"ColorMap",
-			321:"HalftoneHints",322:"TileWidth",
-			323:"TileLength",324:"TileOffset",325:"TileByteCounts",330:"SubIFDs",336:"DotRange",338:"ExtraSample",339:"SampleFormat", 347:"JPEGTables",
-			512:"JPEGProc",513:"JPEGInterchangeFormat",514:"JPEGInterchangeFormatLength",519:"JPEGQTables",520:"JPEGDCTables",521:"JPEGACTables",
-			529:"YCbCrCoefficients",530:"YCbCrSubSampling",531:"YCbCrPositioning",532:"ReferenceBlackWhite",700:"XMP",
-			33421:"CFARepeatPatternDim",33422:"CFAPattern",33432:"Copyright",33434:"ExposureTime",33437:"FNumber",33723:"IPTC/NAA",34377:"Photoshop",
-			34665:"ExifIFD",34675:"ICC Profile",34850:"ExposureProgram",34853:"GPSInfo",34855:"ISOSpeedRatings",34858:"TimeZoneOffset",34859:"SelfTimeMode",
-			36867:"DateTimeOriginal",36868:"DateTimeDigitized",
-			37377:"ShutterSpeedValue",37378:"ApertureValue",37380:"ExposureBiasValue",37381:"MaxApertureValue",37383:"MeteringMode",37384:"LightSource",
-			37385:"Flash",37386:"FocalLength",
-			37390:"FocalPlaneXResolution",37391:"FocalPlaneYResolution",37392:"FocalPlaneResolutionUnit",37393:"ImageNumber",37398:"TIFF/EPStandardID",37399:"SensingMethod",
-			37500:"MakerNote",37510:"UserComment",37520:"SubsecTime",37521:"SubsecTimeOriginal",37522:"SubsecTimeDigitized",37724:"ImageSourceData",
-			40092:"XPComment",40094:"XPKeywords",
-			40961:"ColorSpace",40962:"PixelXDimension",40963:"PixelXDimension",41486:"FocalPlaneXResolution",41487:"FocalPlaneYResolution",41488:"FocalPlaneResolutionUnit",
-			41495:"SensingMethod",41728:"FileSource",41729:"SceneType",41730:"CFAPattern",
-			41985:"CustomRendered",41986:"ExposureMode",41987:"WhiteBalance",41988:"DigitalZoomRatio",41989:"FocalLengthIn35mmFilm",41990:"SceneCaptureType",
-			41991:"GainControl",41992:"Contrast",41993:"Saturation",41994:"Sharpness",41996:"SubjectDistanceRange",
-			50706:"DNGVersion",50707:"DNGBackwardVersion",50708:"UniqueCameraModel",50709:"LocalizedCameraModel",50710:"CFAPlaneColor",
-			50711:"CFALayout",50712:"LinearizationTable",50713:"BlackLevelRepeatDim",50714:"BlackLevel",50716:"BlackLevelDeltaV",50717:"WhiteLevel",
-			50718:"DefaultScale",50719:"DefaultCropOrigin",
-			50720:"DefaultCropSize",50733:"BayerGreenSplit",50738:"AntiAliasStrength",
-			50721:"ColorMatrix1",50722:"ColorMatrix2",50723:"CameraCalibration1",50724:"CameraCalibration2",50727:"AnalogBalance",50728:"AsShotNeutral",
-			50730:"BaselineExposure",50731:"BaselineNoise",50732:"BaselineSharpness",50734:"LinearResponseLimit",50735:"CameraSerialNumber",50736:"LensInfo",50739:"ShadowScale",
-			50740:"DNGPrivateData",50741:"MakerNoteSafety",50778:"CalibrationIlluminant1",50779:"CalibrationIlluminant2",50780:"BestQualityScale",
-			50781:"RawDataUniqueID",50827:"OriginalRawFileName",50829:"ActiveArea",50830:"MaskedAreas",50931:"CameraCalibrationSignature",50932:"ProfileCalibrationSignature",
-			50935:"NoiseReductionApplied",50936:"ProfileName",50937:"ProfileHueSatMapDims",50938:"ProfileHueSatMapData1",50939:"ProfileHueSatMapData2",
-			50940:"ProfileToneCurve",50941:"ProfileEmbedPolicy",50942:"ProfileCopyright",
-			50964:"ForwardMatrix1",50965:"ForwardMatrix2",50966:"PreviewApplicationName",50967:"PreviewApplicationVersion",50969:"PreviewSettingsDigest",
-			50970:"PreviewColorSpace",50971:"PreviewDateTime",50972:"RawImageDigest",
-			51008:"OpcodeList1",51009:"OpcodeList2",51022:"OpcodeList3",51041:"NoiseProfile",51089:"OriginalDefaultFinalSize",
-			51090:"OriginalBestQualityFinalSize",51091:"OriginalDefaultCropSize",51125:"DefaultUserCrop"};
-
+UTIF.tags = {};
 UTIF.ttypes = {  256:3,257:3,258:3,   259:3, 262:3,  273:4,  274:3, 277:3,278:4,279:4, 282:5, 283:5, 284:3, 286:5,287:5, 296:3, 305:2, 306:2, 338:3, 513:4, 514:4, 34665:4  };
 
 UTIF._readIFD = function(bin, data, offset, ifds, depth, debug)
@@ -998,6 +963,28 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 		for(var x=0; x<xlim; x++) b[tof+x] = tb[sof+x];
 	}
 }
+
+UTIF.LosslessJpegDecode = (function(){function h(i){this.V=i;this.w=0;this.O=0;this.o=0}h.prototype={h:function(i){this.w=Math.max(0,Math.min(this.V.length,i))},R:function(){return this.V[this.w++]},T:function(){var i=this.w;
+this.w+=2;return this.V[i]<<8|this.V[i+1]},H:function(){if(this.O==0){this.o=this.V[this.w];this.w+=1+(this.o+1>>>8);
+this.O=8}return this.o>>>--this.O&1},i:function(i){var Y=this.O,F=this.o,D=Math.min(Y,i);i-=D;Y-=D;var m=F>>>Y&(1<<D)-1;
+while(i>0){F=this.V[this.w];this.w+=1+(F+1>>>8);D=Math.min(8,i);i-=D;Y=8-D;m<<=D;m|=F>>>Y&(1<<D)-1}this.O=Y;
+this.o=F;return m}};var R={};R.Y=function(){return[0,0,-1]};R.F=function(i,Y,F){i[R.D(i,0,F)+2]=Y};R.D=function(i,Y,F){if(i[Y+2]!=-1)return 0;
+if(F==0)return Y;for(var D=0;D<2;D++){if(i[Y+D]==0){i[Y+D]=i.length;i.push(0);i.push(0);i.push(-1)}var m=R.D(i,i[Y+D],F-1);
+if(m!=0)return m}return 0};R.m=function(i,Y){var F=0,D=0,m=0,c=Y.O,C=Y.o,t=Y.w;while(!0){if(c==0){C=Y.V[t];
+t+=1+(C+1>>>8);c=8}m=C>>>--c&1;F=i[F+m];D=i[F+2];if(D!=-1){Y.O=c;Y.o=C;Y.w=t;return D}}return-1};function T(i){this.q=new h(i);
+this.Z(this.q)}T.prototype={c:function(i,Y){this.f=i.R();this.r=i.T();this.G=i.T();var F=this.d=i.R();
+this.P=[];for(var D=0;D<F;D++){var m=i.R(),c=i.R();i.R();this.P[m]=D}i.h(i.w+Y-(6+F*3))},C:function(){var i=0,Y=this.q.R();
+if(this.J==null)this.J={};var F=this.J[Y]=R.Y(),D=[];for(var m=0;m<16;m++){D[m]=this.q.R();i+=D[m]}for(var m=0;
+m<16;m++)for(var c=0;c<D[m];c++)R.F(F,this.q.R(),m+1);return i+17},t:function(i){while(i>0)i-=this.C()},U:function(i,Y){var F=i.R();
+if(!this.j){this.j=[]}for(var D=0;D<F;D++){var m=i.R(),c=i.R();this.j[this.P[m]]=this.J[c>>>4]}this.n=i.R();
+i.h(i.w+Y-(2+F*2))},Z:function(i){var Y=!1,F=i.T();if(F!==T.k)return;do{var F=i.T(),D=i.T()-2;switch(F){case T.K:this.c(i,D);
+break;case T.B:this.t(D);break;case T.W:this.U(i,D);Y=!0;break;default:i.h(i.w+D);break}}while(!Y)},X:function(i,Y){var F=R.m(Y,i);
+if(F==16)return-32768;var D=i.i(F);if((D&1<<F-1)==0)D-=(1<<F)-1;return D},m:function(i,Y){var F=this.q,D=this.d,m=this.r,c=this.X,C=this.n,t=this.G*D,U=this.j.slice(0);
+U.push(U[0],U[0],U[0]);for(var Z=0;Z<D;Z++){i[Z]=c(F,U[Z])+(1<<this.f-1)}for(var X=D;X<t;X++){i[X]=c(F,U[X&1])+i[X-D]}var K=Y;
+for(var B=1;B<m;B++){for(var Z=0;Z<D;Z++){i[K+Z]=c(F,U[Z])+i[K+Z-Y]}for(var X=D;X<t;X++){var k=K+X,W=0;
+if(C==1)W=i[k-D];else if(C==6)W=i[k-Y]+(i[k-D]-i[k-D-Y]>>>1);i[k]=W+c(F,U[X&1])}K+=Y}}};T.K=65475;T.B=65476;
+T.k=65496;T.W=65498;function H(i){var Y=new T(i),F=Y.f>8?Uint16Array:Uint8Array,D=new F(Y.G*Y.r*Y.d),m=Y.G*Y.d;
+Y.m(D,m);return D}return H}());
 
 
 })(UTIF, pako);
