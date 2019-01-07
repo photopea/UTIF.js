@@ -17,10 +17,10 @@ npm install utif
 * `buffer`: ArrayBuffer containing TIFF or EXIF data
 * returns an array of "IFDs" (image file directories). Each IFD is an object, keys are "tXYZ" (XYZ is a TIFF tag number), values are values of these tags. You can get the the dimension (and other properties, "metadata") of the image without decompressing pixel data.
 
-#### `UTIF.decodeImages(buffer, ifds)`
+#### `UTIF.decodeImage(buffer, ifd)`
 * `buffer`: ArrayBuffer containing TIFF or EXIF data
-* `ifds`: the output of UTIF.decode()
-* loops through each IFD. If there is an image inside it, it is decoded and three new properties are added to the IFD:
+* `ifd`: the element of the output of UTIF.decode()
+* If there is an image inside the IFD, it is decoded and three new properties are added to the IFD:
 * * `width`: the width of the image
 * * `height`: the height of the image
 * * `data`: decompressed pixel data of the image
@@ -28,7 +28,7 @@ npm install utif
 TIFF files may have various number of channels and various color depth. The interpretation of `data` depends on many tags (see the [TIFF 6 specification](http://www.npes.org/pdf/TIFF-v6.pdf)). The following function converts any TIFF image into a 8-bit RGBA image.
 
 #### `UTIF.toRGBA8(ifd)`
-* `ifd`: image file directory (element of "ifds" returned by UTIF.decode(), processed by UTIF.decodeImages())
+* `ifd`: image file directory (element of "ifds" returned by UTIF.decode(), processed by UTIF.decodeImage())
 * returns Uint8Array of the image in RGBA format, 8 bits per channel (ready to use in context2d.putImageData() etc.)
 
 ### Example
@@ -36,7 +36,7 @@ TIFF files may have various number of channels and various color depth. The inte
 ```javascript
 function imgLoaded(e) {
   var ifds = UTIF.decode(e.target.response);
-  UTIF.decodeImages(e.target.response, ifds)
+  UTIF.decodeImage(e.target.response, ifds[0])
   var rgba  = UTIF.toRGBA8(ifds[0]);  // Uint8Array with RGBA pixels
   console.log(ifds[0].width, ifds[0].height, ifds[0]);
 }
