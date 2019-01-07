@@ -90,75 +90,76 @@ UTIF.decode = function(buff)
 
 	var ifdo = bin.readUint(data, offset);  offset+=4;
 	var ifds = [];
-	while(true)
-	{
+	while(true) {
 		var noff = UTIF._readIFD(bin, data, ifdo, ifds, 0, false);
-		//var ifd = ifds[ifds.length-1];   if(ifd["t34665"]) {  ifd.exifIFD = [];  UTIF._readIFD(bin, data, ifd["t34665"][0], ifd.exifIFD);  }
 		ifdo = bin.readUint(data, noff);
 		if(ifdo==0) break;
 	}
 	return ifds;
 }
 
-UTIF.decodeImages = function(buff, ifds)
+UTIF.decodeImage = function(buff, img, ifds)
 {
 	var data = new Uint8Array(buff);
 	var id = UTIF._binBE.readASCII(data, 0, 2);
 
-	for(var ii=0; ii<ifds.length; ii++)
-	{
-		var img = ifds[ii];
-		if(img["t256"]==null) continue;	// EXIF files don't have TIFF tags
-		img.isLE = id=="II";
-		img.width  = img["t256"][0];  //delete img["t256"];
-		img.height = img["t257"][0];  //delete img["t257"];
+	if(img["t256"]==null) return;	// No width => probably not an image
+	img.isLE = id=="II";
+	img.width  = img["t256"][0];  //delete img["t256"];
+	img.height = img["t257"][0];  //delete img["t257"];
 
-		var cmpr   = img["t259"] ? img["t259"][0] : 1;  //delete img["t259"];
-		var fo = img["t266"] ? img["t266"][0] : 1;  //delete img["t266"];
-		if(img["t284"] && img["t284"][0]==2) log("PlanarConfiguration 2 should not be used!");
+	var cmpr   = img["t259"] ? img["t259"][0] : 1;  //delete img["t259"];
+	var fo = img["t266"] ? img["t266"][0] : 1;  //delete img["t266"];
+	if(img["t284"] && img["t284"][0]==2) log("PlanarConfiguration 2 should not be used!");
 
-		var bipp = (img["t258"]?Math.min(32,img["t258"][0]):1) * (img["t277"]?img["t277"][0]:1);  // bits per pixel
-		var bipl = Math.ceil(img.width*bipp/8)*8;
-		var soff = img["t273"];  if(soff==null) soff = img["t324"];
-		var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [img.height*(bipl>>>3)];  if(bcnt==null) bcnt = img["t325"];
-		var bytes = new Uint8Array(img.height*(bipl>>>3)), bilen = 0;
-
-		if(img["t322"]!=null) // tiled
-		{
-			var tw = img["t322"][0], th = img["t323"][0];
-			var tx = Math.floor((img.width  + tw - 1) / tw);
-			var ty = Math.floor((img.height + th - 1) / th);
-			var tbuff = new Uint8Array(Math.ceil(tw*th*bipp/8)|0);
-			for(var y=0; y<ty; y++)
-				for(var x=0; x<tx; x++)
-				{
-					var i = y*tx+x;  for(var j=0; j<tbuff.length; j++) tbuff[j]=0;
-					UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, tbuff, 0, fo);
-					// Might be required for 7 too. Need to check
-					if (cmpr==6) bytes = tbuff;
-					else UTIF._copyTile(tbuff, Math.ceil(tw*bipp/8)|0, th, bytes, Math.ceil(img.width*bipp/8)|0, img.height, Math.ceil(x*tw*bipp/8)|0, y*th);
-				}
-			bilen = bytes.length*8;
-		}
-		else	// stripped
-		{
-			var rps = img["t278"] ? img["t278"][0] : img.height;   rps = Math.min(rps, img.height);
-			for(var i=0; i<soff.length; i++)
-			{
-				UTIF.decode._decompress(img, data, soff[i], bcnt[i], cmpr, bytes, Math.ceil(bilen/8)|0, fo);
-				bilen += bipl * rps;
-			}
-			bilen = Math.min(bilen, bytes.length*8);
-		}
-		img.data = new Uint8Array(bytes.buffer, 0, Math.ceil(bilen/8)|0);
+	var bipp;  // bits per pixel
+	if(img["t258"]) bipp = Math.min(32,img["t258"][0])*img["t258"].length;
+	else            bipp = (img["t277"]?img["t277"][0]:1);  
+	// Some .NEF files have t258==14, even though they use 16 bits per pixel
+	if(cmpr==1 && img["t279"]!=null && img["t278"] && img["t262"][0]==32803)  {
+		bipp = Math.round((img["t279"][0]*8)/(img.width*img["t278"][0]));
 	}
+	var bipl = Math.ceil(img.width*bipp/8)*8;
+	var soff = img["t273"];  if(soff==null) soff = img["t324"];
+	var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [img.height*(bipl>>>3)];  if(bcnt==null) bcnt = img["t325"];
+	var bytes = new Uint8Array(img.height*(bipl>>>3)), bilen = 0;
+
+	if(img["t322"]!=null) // tiled
+	{
+		var tw = img["t322"][0], th = img["t323"][0];
+		var tx = Math.floor((img.width  + tw - 1) / tw);
+		var ty = Math.floor((img.height + th - 1) / th);
+		var tbuff = new Uint8Array(Math.ceil(tw*th*bipp/8)|0);
+		for(var y=0; y<ty; y++)
+			for(var x=0; x<tx; x++)
+			{
+				var i = y*tx+x;  for(var j=0; j<tbuff.length; j++) tbuff[j]=0;
+				UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, tbuff, 0, fo);
+				// Might be required for 7 too. Need to check
+				if (cmpr==6) bytes = tbuff;
+				else UTIF._copyTile(tbuff, Math.ceil(tw*bipp/8)|0, th, bytes, Math.ceil(img.width*bipp/8)|0, img.height, Math.ceil(x*tw*bipp/8)|0, y*th);
+			}
+		bilen = bytes.length*8;
+	}
+	else	// stripped
+	{
+		var rps = img["t278"] ? img["t278"][0] : img.height;   rps = Math.min(rps, img.height);
+		for(var i=0; i<soff.length; i++)
+		{
+			UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, bytes, Math.ceil(bilen/8)|0, fo);
+			bilen += bipl * rps;
+		}
+		bilen = Math.min(bilen, bytes.length*8);
+	}
+	img.data = new Uint8Array(bytes.buffer, 0, Math.ceil(bilen/8)|0);
 }
 
-UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  // fill order
+UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo)  // fill order
 {
 	//console.log("compression", cmpr);
+	//var time = Date.now();
 	if(false) {}
-	else if(cmpr==1) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
+	else if(cmpr==1 || len==tgt.length) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
@@ -167,19 +168,22 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff);
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
-	//else if(cmpr==34713) //for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
-	//	UTIF.decode._decodeNikon   (img, data, off, len, tgt, toff);
+	else if(cmpr==34713) //for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
+		UTIF.decode._decodeNikon   (img,ifds, data, off, len, tgt, toff);
 	else log("Unknown compression", cmpr);
+	
+	//console.log(Date.now()-time);
 	
 	var bps = (img["t258"]?Math.min(32,img["t258"][0]):1);
 	var noc = (img["t277"]?img["t277"][0]:1), bpp=(bps*noc)>>>3, h = (img["t278"] ? img["t278"][0] : img.height), bpl = Math.ceil(bps*noc*img.width/8);
 	
-	// convert to Little Endian
+	// convert to Little Endian  /*
 	if(bps==16 && !img.isLE && img["t33422"]==null)  // not DNG
 		for(var y=0; y<h; y++) {
+			//console.log("fixing endianity");
 			var roff = toff+y*bpl;
 			for(var x=1; x<bpl; x+=2) {  var t=tgt[roff+x];  tgt[roff+x]=tgt[roff+x-1];  tgt[roff+x-1]=t;  }
-		}
+		}  //*/
 
 	if(img["t317"] && img["t317"][0]==2)
 	{
@@ -201,7 +205,9 @@ UTIF.decode._decompress = function(img, data, off, len, cmpr, tgt, toff, fo)  //
 	}
 }
 
-UTIF.decode._decodeNikon = function(img, data, off, dlen, tgt, toff)
+var g_input_offset = 0;
+
+UTIF.decode._decodeNikon = function(img,imgs, data, off, src_length, tgt, toff)
 {
 	var nikon_tree = [
     [ 0, 0,1,5,1,1,1,1,1,1,2,0,0,0,0,0,0,	/* 12-bit lossy */
@@ -217,62 +223,110 @@ UTIF.decode._decodeNikon = function(img, data, off, dlen, tgt, toff)
     [ 0, 0,1,4,2,2,3,1,2,0,0,0,0,0,0,0,0,	/* 14-bit lossless */
       7,6,8,5,9,4,10,3,11,12,2,0,1,13,14 ] ];
 	  
-	var w = img["t256"], h=img["t257"], bpp=img["t258"];
-
-	//struct decode *dindex;
-	var ver0, ver1, vpred, hpred, csize;
-	var i, min, max, step=0, huff=0, split=0, row, col, len, shl, diff;
-
-	//var arr = [ 0, 0,1,4,2,3,1,2,0,0,0,0,0,0,0,0,0,
-    //  0x04,0x03,0x05,0x06,0x02,0x07,0x01,0x08,0x09,0x00,0x0a,0x0b,0xff  ];
+	var raw_width = img["t256"][0], height=img["t257"][0], tiff_bps=img["t258"][0];
 	
-	var huf = UTIF.decode._makeHuffDecoder(nikon_tree[0]);
-	var pos=off*8, tpos=toff*8;
-	var area = 0;
-	for(var row=0; row<h; row++) {
-		for(var col=0; col<w; col++) {
-			var code = UTIF.decode._bitsF(data, pos, huf[0]);  
-			var t = huf[code+1];
-			var len = t & 15;
-			var shl = t >> 4;
-			pos += len;
-			//pos += (len-shl);
-			//if(code[1]!=0) throw "e";
-			UTIF.decode._putsF(tgt, tpos, Math.min(4095,shl*10));  tpos += 12;
-			area++;
+	var tree = 0, split = 0;
+	var make_decoder = UTIF.decode._make_decoder;
+	var getbithuff   = UTIF.decode._getbithuff;
+	  
+	
+	var mn = imgs[0].exifIFD.makerNote, md = mn["t150"]?mn["t150"]:mn["t140"], mdo=0;  //console.log(mn,md);
+	//console.log(md[0].toString(16), md[1].toString(16), tiff_bps);
+	var ver0 = md[mdo++], ver1 = md[mdo++];
+	if (ver0 == 0x49 || ver1 == 0x58)  mdo+=2110;
+	if (ver0 == 0x46) tree = 2;
+	if (tiff_bps == 14) tree += 3;
+	
+	var vpred = [[0,0],[0,0]], bin=(img.isLE ? UTIF._binLE : UTIF._binBE);
+	for(var i=0; i<2; i++) for(var j=0; j<2; j++) {  vpred[i][j] = bin.readShort(md,mdo);  mdo+=2;   }  // not sure here ... [i][j] or [j][i]
+	//console.log(vpred);
+	
+	
+	var max = 1 << tiff_bps & 0x7fff, step=0;
+	var csize = bin.readShort(md,mdo);  mdo+=2;
+	if (csize > 1) step = Math.floor(max / (csize-1));
+	if (ver0 == 0x44 && ver1 == 0x20 && step > 0)  split = bin.readShort(md,562);
+	
+	
+	var i;
+	var row, col;
+	var len, shl, diff;
+	var min_v = 0;
+	var hpred = [0,0];
+	var huff = make_decoder(nikon_tree[tree]);
+	
+	//var g_input_offset=0, bitbuf=0, vbits=0, reset=0;
+	var prm = [off,0,0,0];
+	//console.log(split);  split = 170;
+	
+	for (min_v=row=0; row < height; row++) {
+		if (split && row == split) {
+			//free (huff);
+			huff = make_decoder (nikon_tree[tree+1]);
+			//max_v += (min_v = 16) << 1;
+		}
+		for (col=0; col < raw_width; col++) {
+			i = getbithuff(data,prm,huff[0],huff);
+			len = i  & 15;
+			shl = i >>> 4;
+			diff = (((getbithuff(data,prm,len-shl,0) << 1) + 1) << shl) >>> 1;
+			if ((diff & (1 << (len-1))) == 0)
+				diff -= (1 << len) - (shl==0?1:0);
+			if (col < 2) hpred[col] = vpred[row & 1][col] += diff;
+			else         hpred[col & 1] += diff;
+			
+			var clr = Math.min(Math.max(hpred[col & 1],0),(1<<tiff_bps)-1);
+			var bti = (row*raw_width+col)*tiff_bps;  
+			UTIF.decode._putsF(tgt, bti, clr<<(16-tiff_bps));
 		}
 	}
-	console.log(area, (pos/8)-off, dlen, tgt.slice(0,20)); 
-	//throw "e";
 }
-UTIF.decode.rev = function(c) {  return c;
-   var shift;
-   var result = 0;
-   for (shift = 0; shift < 8; shift++) {
-      if (c & (0x01 << shift))
-         result |= (0x80 >> shift);
-   }
-   return result;
+// put 16 bits
+UTIF.decode._putsF= function(dt, pos, val) {  val = val<<(8-(pos&7));  var o=(pos>>>3);  dt[o]|=val>>>16;  dt[o+1]|=val>>>8;  dt[o+2]|=val;  }
+
+
+UTIF.decode._getbithuff = function(data,prm,nbits, huff) {
+	var zero_after_ff = 0;
+	var get_byte = UTIF.decode._get_byte;
+	var c;
+  
+	var off=prm[0], bitbuf=prm[1], vbits=prm[2], reset=prm[3];
+
+	//if (nbits > 25) return 0;
+	//if (nbits <  0) return bitbuf = vbits = reset = 0;
+	if (nbits == 0 || vbits < 0) return 0; 
+	while (!reset && vbits < nbits && (c = data[off++]) != -1 &&
+		!(reset = zero_after_ff && c == 0xff && data[off++])) {
+		//console.log("byte read into c");
+		bitbuf = (bitbuf << 8) + c;
+		vbits += 8;
+	} 
+	c = (bitbuf << (32-vbits)) >>> (32-nbits);
+	if (huff) {
+		vbits -= huff[c+1] >>> 8;  //console.log(c, huff[c]>>8);
+		c =  huff[c+1]&255;
+	} else
+		vbits -= nbits;
+	if (vbits < 0) throw "e";
+  
+	prm[0]=off;  prm[1]=bitbuf;  prm[2]=vbits;  prm[3]=reset;
+  
+	return c;
 }
 
-UTIF.decode._putsF= function(dt, pos, val   ) {  val = val<<(pos&7);  var o=(pos>>>3);  dt[o]|=val;  dt[o+1]|=(val>>>8);  dt[o+2]|=(val>>>16);  }
-UTIF.decode._bitsF= function(dt, pos, length) {  var r=UTIF.decode.rev;  return ((r(dt[pos>>>3]) | (r(dt[(pos>>>3)+1])<<8) | (r(dt[(pos>>>3)+2])<<16))>>>(pos&7))&((1<<length)-1);  }
-UTIF.decode._makeHuffDecoder = function(source) {
+UTIF.decode._make_decoder = function(source) {
 	var max, len, h, i, j;
 	var huff = [];
 
 	for (max=16; max!=0 && !source[max]; max--);
 	var si=17;
 	
-	console.log(max);
-	
 	huff[0] = max;
 	for (h=len=1; len <= max; len++)
 		for (i=0; i < source[len]; i++, ++si)
 			for (j=0; j < 1 << (max-len); j++)
 				if (h <= 1 << max)
-					huff[h++] = (source[si] << 4) | len;
-	console.log(huff);
+					huff[h++] = (len << 8) | source[si];
 	return huff;
 }
 
@@ -280,8 +334,7 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 {
 	var tables = img["t347"], tlen = tables ? tables.length : 0, buff = new Uint8Array(tlen + len);
 	
-	if (tables)
-	{
+	if (tables) {
 		var SOI = 216, EOI = 217, boff = 0;
 		for (var i=0; i<(tlen-1); i++)
 		{
@@ -301,13 +354,16 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 	}
 	else for (var i=0; i<len; i++) buff[i] = data[off+i];
 
-	if(img["t262"]==32803) // lossless JPEG (used in DNG files) is not available in JpegDecoder.
+	if(img["t262"][0]==32803 || img["t262"][0]==34892) // lossless JPEG and lossy JPEG (used in DNG files)
 	{
 		var bps = img["t258"][0];//, dcdr = new LosslessJpegDecoder();
-		var out = UTIF.LosslessJpegDecode(buff), olen=out.length;
+		var out = UTIF.LosslessJpegDecode(buff), olen=out.length;  //console.log(olen);
 		
 		if(false) {}
-		else if(bps==16) for(var i=0; i<olen; i++ ) {  tgt[toff++] = (out[i]&255);  tgt[toff++] = (out[i]>>>8);  }
+		else if(bps==16) {
+			if(img.isLE) for(var i=0; i<olen; i++ ) {  tgt[toff+(i<<1)] = (out[i]&255);  tgt[toff+(i<<1)+1] = (out[i]>>>8);  }
+			else         for(var i=0; i<olen; i++ ) {  tgt[toff+(i<<1)] = (out[i]>>>8);  tgt[toff+(i<<1)+1] = (out[i]&255);  }
+		}
 		else if(bps==12) for(var i=0; i<olen; i+=2) {  tgt[toff++] = (out[i]>>>4);  tgt[toff++] = ((out[i]<<4)|(out[i+1]>>>8))&255;  tgt[toff++] = out[i+1]&255;  }
 		else throw new Error("unsupported bit depth "+bps);
 	}
@@ -512,7 +568,7 @@ UTIF.decode._decodeOldJPEG = function(img, data, off, len, tgt, toff)
 
 	// PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
 	// RGB format, so updating the tag value
-	if(img["t262"][0] == 6)  img["t262"][0] = 2;
+	if(img["t262"] && img["t262"][0] == 6)  img["t262"][0] = 2;
 }
 
 UTIF.decode._decodePackBits = function(data, off, len, tgt, toff)
@@ -767,12 +823,14 @@ UTIF._readIFD = function(bin, data, offset, ifds, depth, debug)
 		var type = bin.readUshort(data, offset);    offset+=2;
 		var num  = bin.readUint  (data, offset);    offset+=4;
 		var voff = bin.readUint  (data, offset);    offset+=4;
+		//if(tag==33723) {type=1; num*=4;}//console.log(type,num,voff);//type = 1;  // IPTC/NAA
 
 		var arr = [];
-		ifd["t"+tag] = arr;
 		//ifd["t"+tag+"-"+UTIF.tags[tag]] = arr;
-		if(type== 1 || type==7) {  for(var j=0; j<num; j++) arr.push(data[(num<5 ? offset-4 : voff)+j]); }
-		if(type== 2) {  arr.push( bin.readASCII(data, (num<5 ? offset-4 : voff), num-1) );  }
+		if(type== 1 || type==7) {  arr = new Uint8Array(data.buffer, (num<5 ? offset-4 : voff), num);  }
+		if(type== 2) {  var o0 = (num<5 ? offset-4 : voff), c=data[o0];  
+						if(c<128) arr.push( bin.readASCII(data, o0, num-1) );
+						else      arr = new Uint8Array(data.buffer, o0, num-1);  }
 		if(type== 3) {  for(var j=0; j<num; j++) arr.push(bin.readUshort(data, (num<3 ? offset-4 : voff)+2*j));  }
 		if(type== 4) {  for(var j=0; j<num; j++) arr.push(bin.readUint  (data, (num<2 ? offset-4 : voff)+4*j));  }
 		if(type== 5) {  for(var j=0; j<num; j++) arr.push(bin.readUint  (data, voff+j*8) / bin.readUint(data,voff+j*8+4));  }
@@ -781,9 +839,26 @@ UTIF._readIFD = function(bin, data, offset, ifds, depth, debug)
 		if(type==10) {  for(var j=0; j<num; j++) arr.push(bin.readInt   (data, voff+j*8) / bin.readInt (data,voff+j*8+4));  }
 		if(type==11) {  for(var j=0; j<num; j++) arr.push(bin.readFloat (data, voff+j*4));  }
 		if(type==12) {  for(var j=0; j<num; j++) arr.push(bin.readDouble(data, voff+j*8));  }
+		
+		ifd["t"+tag] = arr;
+		
 		if(num!=0 && arr.length==0) log("unknown TIFF tag type: ", type, "num:",num);
 		if(debug) log("   ".repeat(depth), tag, type, UTIF.tags[tag], arr);
-		if(tag==330 || tag==34665) for(var j=0; j<num; j++) UTIF._readIFD(bin, data, arr[j], ifds, depth+1, debug);
+		if(tag==330 || tag==34665) {
+			var subfd = [];
+			for(var j=0; j<num; j++) UTIF._readIFD(bin, data, arr[j], subfd, depth+1, debug);
+			if(tag==  330) ifd.subIFD = subfd;
+			if(tag==34665) ifd.exifIFD = subfd[0];
+		}
+		if(tag==37500) {
+			var mn = arr;
+			//console.log(bin.readASCII(mn,0,mn.length), mn);
+			if(bin.readASCII(mn,0,5)=="Nikon")  ifd.makerNote = UTIF["decode"](mn.slice(10).buffer)[0];
+			else if(bin.readUshort(data,voff)<300){
+				var subsub=[];  UTIF._readIFD(bin, data, voff, subsub, depth+1, debug);
+				ifd.makerNote = subsub[0];
+			}
+		}
 	}
 	if(debug) log("   ".repeat(depth),"<<<---------------");
 	return offset;
@@ -825,8 +900,9 @@ UTIF.toRGBA8 = function(out)
 {
 	var w = out.width, h = out.height, area = w*h, qarea = area*4, data = out.data;
 	var img = new Uint8Array(area*4);
+	//console.log(out);
 	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask, 5: CMYK
-	var intp = out["t262"][0], bps = (out["t258"]?Math.min(32,out["t258"][0]):1);
+	var intp = (out["t262"] ? out["t262"][0]: 2), bps = (out["t258"]?Math.min(32,out["t258"][0]):1);
 	//log("interpretation: ", intp, "bps", bps, out);
 	if(false) {}
 	else if(intp==0)
@@ -885,11 +961,12 @@ UTIF.toRGBA8 = function(out)
 UTIF.replaceIMG = function()
 {
 	var imgs = document.getElementsByTagName("img");
+	var sufs = ["tif","tiff","dng","cr2","nef"]
 	for (var i=0; i<imgs.length; i++)
 	{
 		var img=imgs[i], src=img.getAttribute("src");  if(src==null) continue;
 		var suff=src.split(".").pop().toLowerCase();
-		if(suff!="tif" && suff!="tiff") continue;
+		if(sufs.indexOf(suff)==-1) continue;
 		var xhr = new XMLHttpRequest();  UTIF._xhrs.push(xhr);  UTIF._imgs.push(img);
 		xhr.open("GET", src);  xhr.responseType = "arraybuffer";
 		xhr.onload = UTIF._imgLoaded;   xhr.send();
@@ -900,7 +977,15 @@ UTIF._xhrs = [];  UTIF._imgs = [];
 UTIF._imgLoaded = function(e)
 {
 	var buff = e.target.response;
-	var ifds = UTIF.decode(buff), page = ifds[0];  UTIF.decodeImages(buff, ifds);
+	var ifds = UTIF.decode(buff);  //console.log(ifds);
+	var vsns = ifds, ma=0, page=vsns[0];  if(ifds[0].subIFD) vsns = vsns.concat(ifds[0].subIFD);
+	for(var i=0; i<vsns.length; i++) {
+		var img = vsns[i];
+		if(img["t258"]==null || img["t258"].length<3) continue;
+		var ar = img["t256"]*img["t257"];
+		if(ar>ma) {  ma=ar;  page=img;  }
+	}
+	UTIF.decodeImage(buff, page, ifds);
 	var rgba = UTIF.toRGBA8(page), w=page.width, h=page.height;
 	var ind = UTIF._xhrs.indexOf(e.target), img = UTIF._imgs[ind];
 	UTIF._xhrs.splice(ind,1);  UTIF._imgs.splice(ind,1);
@@ -964,27 +1049,29 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 	}
 }
 
-UTIF.LosslessJpegDecode = (function(){function h(i){this.V=i;this.w=0;this.O=0;this.o=0}h.prototype={h:function(i){this.w=Math.max(0,Math.min(this.V.length,i))},R:function(){return this.V[this.w++]},T:function(){var i=this.w;
-this.w+=2;return this.V[i]<<8|this.V[i+1]},H:function(){if(this.O==0){this.o=this.V[this.w];this.w+=1+(this.o+1>>>8);
-this.O=8}return this.o>>>--this.O&1},i:function(i){var Y=this.O,F=this.o,D=Math.min(Y,i);i-=D;Y-=D;var m=F>>>Y&(1<<D)-1;
-while(i>0){F=this.V[this.w];this.w+=1+(F+1>>>8);D=Math.min(8,i);i-=D;Y=8-D;m<<=D;m|=F>>>Y&(1<<D)-1}this.O=Y;
-this.o=F;return m}};var R={};R.Y=function(){return[0,0,-1]};R.F=function(i,Y,F){i[R.D(i,0,F)+2]=Y};R.D=function(i,Y,F){if(i[Y+2]!=-1)return 0;
-if(F==0)return Y;for(var D=0;D<2;D++){if(i[Y+D]==0){i[Y+D]=i.length;i.push(0);i.push(0);i.push(-1)}var m=R.D(i,i[Y+D],F-1);
-if(m!=0)return m}return 0};R.m=function(i,Y){var F=0,D=0,m=0,c=Y.O,C=Y.o,t=Y.w;while(!0){if(c==0){C=Y.V[t];
-t+=1+(C+1>>>8);c=8}m=C>>>--c&1;F=i[F+m];D=i[F+2];if(D!=-1){Y.O=c;Y.o=C;Y.w=t;return D}}return-1};function T(i){this.q=new h(i);
-this.Z(this.q)}T.prototype={c:function(i,Y){this.f=i.R();this.r=i.T();this.G=i.T();var F=this.d=i.R();
-this.P=[];for(var D=0;D<F;D++){var m=i.R(),c=i.R();i.R();this.P[m]=D}i.h(i.w+Y-(6+F*3))},C:function(){var i=0,Y=this.q.R();
-if(this.J==null)this.J={};var F=this.J[Y]=R.Y(),D=[];for(var m=0;m<16;m++){D[m]=this.q.R();i+=D[m]}for(var m=0;
-m<16;m++)for(var c=0;c<D[m];c++)R.F(F,this.q.R(),m+1);return i+17},t:function(i){while(i>0)i-=this.C()},U:function(i,Y){var F=i.R();
-if(!this.j){this.j=[]}for(var D=0;D<F;D++){var m=i.R(),c=i.R();this.j[this.P[m]]=this.J[c>>>4]}this.n=i.R();
-i.h(i.w+Y-(2+F*2))},Z:function(i){var Y=!1,F=i.T();if(F!==T.k)return;do{var F=i.T(),D=i.T()-2;switch(F){case T.K:this.c(i,D);
-break;case T.B:this.t(D);break;case T.W:this.U(i,D);Y=!0;break;default:i.h(i.w+D);break}}while(!Y)},X:function(i,Y){var F=R.m(Y,i);
-if(F==16)return-32768;var D=i.i(F);if((D&1<<F-1)==0)D-=(1<<F)-1;return D},m:function(i,Y){var F=this.q,D=this.d,m=this.r,c=this.X,C=this.n,t=this.G*D,U=this.j.slice(0);
-U.push(U[0],U[0],U[0]);for(var Z=0;Z<D;Z++){i[Z]=c(F,U[Z])+(1<<this.f-1)}for(var X=D;X<t;X++){i[X]=c(F,U[X&1])+i[X-D]}var K=Y;
-for(var B=1;B<m;B++){for(var Z=0;Z<D;Z++){i[K+Z]=c(F,U[Z])+i[K+Z-Y]}for(var X=D;X<t;X++){var k=K+X,W=0;
-if(C==1)W=i[k-D];else if(C==6)W=i[k-Y]+(i[k-D]-i[k-D-Y]>>>1);i[k]=W+c(F,U[X&1])}K+=Y}}};T.K=65475;T.B=65476;
-T.k=65496;T.W=65498;function H(i){var Y=new T(i),F=Y.f>8?Uint16Array:Uint8Array,D=new F(Y.G*Y.r*Y.d),m=Y.G*Y.d;
-Y.m(D,m);return D}return H}());
+UTIF.LosslessJpegDecode = (function(){function t(Z){this.w=Z;this.N=0;this._=0;this.G=0}t.prototype={t:function(Z){this.N=Math.max(0,Math.min(this.w.length,Z))},i:function(){return this.w[this.N++]},l:function(){var Z=this.N;
+this.N+=2;return this.w[Z]<<8|this.w[Z+1]},J:function(){if(this._==0){this.G=this.w[this.N];this.N+=1+(this.G+1>>>8);
+this._=8}return this.G>>>--this._&1},Z:function(Z){var X=this._,s=this.G,E=Math.min(X,Z);Z-=E;X-=E;var Y=s>>>X&(1<<E)-1;
+while(Z>0){s=this.w[this.N];this.N+=1+(s+1>>>8);E=Math.min(8,Z);Z-=E;X=8-E;Y<<=E;Y|=s>>>X&(1<<E)-1}this._=X;
+this.G=s;return Y}};var i={};i.X=function(){return[0,0,-1]};i.s=function(Z,X,s){Z[i.Y(Z,0,s)+2]=X};i.Y=function(Z,X,s){if(Z[X+2]!=-1)return 0;
+if(s==0)return X;for(var E=0;E<2;E++){if(Z[X+E]==0){Z[X+E]=Z.length;Z.push(0);Z.push(0);Z.push(-1)}var Y=i.Y(Z,Z[X+E],s-1);
+if(Y!=0)return Y}return 0};i.B=function(Z,X){var s=0,E=0,Y=0,B=X._,$=X.G,e=X.N;while(!0){if(B==0){$=X.w[e];
+e+=1+($+1>>>8);B=8}Y=$>>>--B&1;s=Z[s+Y];E=Z[s+2];if(E!=-1){X._=B;X.G=$;X.N=e;return E}}return-1};function l(Z){this.z=new t(Z);
+this.D(this.z)}l.prototype={$:function(Z,X){this.Q=Z.i();this.F=Z.l();this.o=Z.l();var s=this.O=Z.i();
+this.L=[];for(var E=0;E<s;E++){var Y=Z.i(),B=Z.i();Z.i();this.L[Y]=E}Z.t(Z.N+X-(6+s*3))},e:function(){var Z=0,X=this.z.i();
+if(this.H==null)this.H={};var s=this.H[X]=i.X(),E=[];for(var Y=0;Y<16;Y++){E[Y]=this.z.i();Z+=E[Y]}for(var Y=0;
+Y<16;Y++)for(var B=0;B<E[Y];B++)i.s(s,this.z.i(),Y+1);return Z+17},W:function(Z){while(Z>0)Z-=this.e()},p:function(Z,X){var s=Z.i();
+if(!this.U){this.U=[]}for(var E=0;E<s;E++){var Y=Z.i(),B=Z.i();this.U[this.L[Y]]=this.H[B>>>4]}this.g=Z.i();
+Z.t(Z.N+X-(2+s*2))},D:function(Z){var X=!1,s=Z.l();if(s!==l.q)return;do{var s=Z.l(),E=Z.l()-2;switch(s){case l.m:this.$(Z,E);
+break;case l.K:this.W(E);break;case l.V:this.p(Z,E);X=!0;break;default:Z.t(Z.N+E);break}}while(!X)},I:function(Z,X){var s=i.B(X,Z);
+if(s==16)return-32768;var E=Z.Z(s);if((E&1<<s-1)==0)E-=(1<<s)-1;return E},B:function(Z,X){var s=this.z,E=this.O,Y=this.F,B=this.I,$=this.g,e=this.o*E,W=this.U;
+for(var p=0;p<E;p++){Z[p]=B(s,W[p])+(1<<this.Q-1)}for(var D=E;D<e;D+=E){for(var p=0;p<E;p++)Z[D+p]=B(s,W[p])+Z[D+p-E]}var I=X;
+for(var m=1;m<Y;m++){for(var p=0;p<E;p++){Z[I+p]=B(s,W[p])+Z[I+p-X]}for(var D=E;D<e;D+=E){for(var p=0;
+p<E;p++){var K=I+D+p,q=Z[K-E];if($==6)q=Z[K-X]+(q-Z[K-E-X]>>>1);Z[K]=q+B(s,W[p])}}I+=X}}};l.m=65475;
+l.K=65476;l.q=65496;l.V=65498;function J(Z){var X=new l(Z),s=X.Q>8?Uint16Array:Uint8Array,E=new s(X.o*X.F*X.O),Y=X.o*X.O;
+X.B(E,Y);return E}return J}())
+
+
 
 
 })(UTIF, pako);
