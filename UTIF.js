@@ -159,13 +159,14 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 	//console.log("compression", cmpr);
 	//var time = Date.now();
 	if(false) {}
-	else if(cmpr==1 || len==tgt.length) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
+	else if(cmpr==1 || (len==tgt.length && cmpr!=32767)) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
 	else if(cmpr==6) UTIF.decode._decodeOldJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==7) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
+	else if(cmpr==32767) UTIF.decode._decodeARW(img, data, off, len, tgt, toff);
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff);
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
 	else if(cmpr==34713) //for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
@@ -205,7 +206,83 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 	}
 }
 
-var g_input_offset = 0;
+UTIF.decode._ljpeg_diff = function(data, prm, huff) {
+	var getbithuff   = UTIF.decode._getbithuff;
+	var len, diff;
+	len  = getbithuff(data, prm, huff[0], huff);
+	diff = getbithuff(data, prm, len, 0);
+	if ((diff & (1 << (len-1))) == 0)  diff -= (1 << len) - 1;
+	return diff;
+}
+UTIF.decode._decodeARW = function(img, inp, off, src_length, tgt, toff) {
+	var raw_width = img["t256"][0], height=img["t257"][0], tiff_bps=img["t258"][0];
+	var bin=(img.isLE ? UTIF._binLE : UTIF._binBE);
+	//console.log(raw_width, height, tiff_bps, raw_width*height, src_length);
+	var arw2 = (raw_width*height == src_length) || (raw_width*height*1.5 == src_length);
+	//arw2 = true;
+	//console.log("ARW2: ", arw2, raw_width*height, src_length, tgt.length);
+	if(!arw2) {  //"sony_arw_load_raw"; // not arw2
+		height+=8;
+		var prm = [off,0,0,0];
+		var huff = new Uint16Array(32770);
+		var tab = [ 0xf11,0xf10,0xe0f,0xd0e,0xc0d,0xb0c,0xa0b,0x90a,0x809,
+			0x708,0x607,0x506,0x405,0x304,0x303,0x300,0x202,0x201 ];
+		var i, c, n, col, row, sum=0;
+		var ljpeg_diff = UTIF.decode._ljpeg_diff;
+
+		huff[0] = 15;
+		for (n=i=0; i < 18; i++) {
+			var lim = 32768 >>> (tab[i] >>> 8);
+			for(var c=0; c<lim; c++) huff[++n] = tab[i];
+		}
+		for (col = raw_width; col--; )
+			for (row=0; row < height+1; row+=2) {
+				if (row == height) row = 1;
+				sum += ljpeg_diff(inp, prm, huff);
+				if (row < height) {
+					var clr =  (sum)&4095;
+					UTIF.decode._putsF(tgt, (row*raw_width+col)*tiff_bps, clr<<(16-tiff_bps));
+				}
+			}
+		return;
+	}
+	if(raw_width*height*1.5==src_length) {
+		//console.log("weird compression");
+		for(var i=0; i<src_length; i+=3) {  var b0=inp[off+i+0], b1=inp[off+i+1], b2=inp[off+i+2];  
+			tgt[toff+i]=(b1<<4)|(b0>>>4);  tgt[toff+i+1]=(b0<<4)|(b2>>>4);  tgt[toff+i+2]=(b2<<4)|(b1>>>4);  }
+		return;
+	}
+	
+	var pix = new Uint16Array(16);
+	var row, col, val, max, min, imax, imin, sh, bit, i,    dp;
+	
+	var data = new Uint8Array(raw_width+1);
+	for (row=0; row < height; row++) {
+		//fread (data, 1, raw_width, ifp);
+		for(var j=0; j<raw_width; j++) data[j]=inp[off++];
+		for (dp=0, col=0; col < raw_width-30; dp+=16) {
+			max  = 0x7ff & (val = bin.readUint(data,dp));
+			min  = 0x7ff & (val >>> 11);
+			imax = 0x0f & (val >>> 22);
+			imin = 0x0f & (val >>> 26);
+			for (sh=0; sh < 4 && 0x80 << sh <= max-min; sh++);
+			for (bit=30, i=0; i < 16; i++)
+				if      (i == imax) pix[i] = max;
+				else if (i == imin) pix[i] = min;
+				else {
+					pix[i] = ((bin.readUshort(data, dp+(bit >> 3)) >>> (bit & 7) & 0x7f) << sh) + min;
+					if (pix[i] > 0x7ff) pix[i] = 0x7ff;
+					bit += 7;
+				}
+			for (i=0; i < 16; i++, col+=2) {
+				//RAW(row,col) = curve[pix[i] << 1] >> 2;
+				var clr =  pix[i]<<1;   //clr = 0xffff;
+				UTIF.decode._putsF(tgt, (row*raw_width+col)*tiff_bps, clr<<(16-tiff_bps));
+			}
+			col -= col & 1 ? 1:31;
+		}
+	}
+}
 
 UTIF.decode._decodeNikon = function(img,imgs, data, off, src_length, tgt, toff)
 {
@@ -228,7 +305,6 @@ UTIF.decode._decodeNikon = function(img,imgs, data, off, src_length, tgt, toff)
 	var tree = 0, split = 0;
 	var make_decoder = UTIF.decode._make_decoder;
 	var getbithuff   = UTIF.decode._getbithuff;
-	  
 	
 	var mn = imgs[0].exifIFD.makerNote, md = mn["t150"]?mn["t150"]:mn["t140"], mdo=0;  //console.log(mn,md);
 	//console.log(md[0].toString(16), md[1].toString(16), tiff_bps);
@@ -364,7 +440,10 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 			if(img.isLE) for(var i=0; i<olen; i++ ) {  tgt[toff+(i<<1)] = (out[i]&255);  tgt[toff+(i<<1)+1] = (out[i]>>>8);  }
 			else         for(var i=0; i<olen; i++ ) {  tgt[toff+(i<<1)] = (out[i]>>>8);  tgt[toff+(i<<1)+1] = (out[i]&255);  }
 		}
-		else if(bps==12) for(var i=0; i<olen; i+=2) {  tgt[toff++] = (out[i]>>>4);  tgt[toff++] = ((out[i]<<4)|(out[i+1]>>>8))&255;  tgt[toff++] = out[i+1]&255;  }
+		else if(bps==14 || bps==12) {  // 4 * 14 == 56 == 7 * 8
+			var rst = 16-bps;
+			for(var i=0; i<olen; i++) UTIF.decode._putsF(tgt, i*bps, out[i]<<rst);
+		}
 		else throw new Error("unsupported bit depth "+bps);
 	}
 	else
@@ -842,13 +921,18 @@ UTIF._readIFD = function(bin, data, offset, ifds, depth, debug)
 		
 		ifd["t"+tag] = arr;
 		
-		if(num!=0 && arr.length==0) log("unknown TIFF tag type: ", type, "num:",num);
+		if(num!=0 && arr.length==0) {  log("unknown TIFF tag type: ", type, "num:",num);  }
 		if(debug) log("   ".repeat(depth), tag, type, UTIF.tags[tag], arr);
-		if(tag==330 || tag==34665) {
+		
+		if(tag==330 && ifd["t272"] && ifd["t272"][0]=="DSLR-A100") {  } 
+		// ifd["t258"]=[12];  ifd["t259"]=[32767];  ifd["t273"]=[offset+arr[0]];  ifd["t277"]=[1];  ifd["t279"]=[1];  ifd["t33421"]=[2,2];  ifd["t33422"]=[0,1,1,2];
+		else if(tag==330 || tag==34665 || (tag==50740 && bin.readUshort(data,bin.readUint(arr,0))<300  )) {
+			var oarr = tag==50740 ? [bin.readUint(arr,0)] : arr;
 			var subfd = [];
-			for(var j=0; j<num; j++) UTIF._readIFD(bin, data, arr[j], subfd, depth+1, debug);
+			for(var j=0; j<oarr.length; j++) UTIF._readIFD(bin, data, oarr[j], subfd, depth+1, debug);
 			if(tag==  330) ifd.subIFD = subfd;
 			if(tag==34665) ifd.exifIFD = subfd[0];
+			if(tag==50740) ifd.dngPrvt = subfd[0];
 		}
 		if(tag==37500) {
 			var mn = arr;
@@ -958,9 +1042,9 @@ UTIF.toRGBA8 = function(out)
 	return img;
 }
 
-UTIF.replaceIMG = function()
+UTIF.replaceIMG = function(imgs)
 {
-	var imgs = document.getElementsByTagName("img");
+	if(imgs==null) imgs = document.getElementsByTagName("img");
 	var sufs = ["tif","tiff","dng","cr2","nef"]
 	for (var i=0; i<imgs.length; i++)
 	{
