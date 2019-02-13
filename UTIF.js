@@ -958,15 +958,21 @@ UTIF.toRGBA8 = function(out)
 	return img;
 }
 
-UTIF.replaceIMG = function()
+UTIF.replaceIMG = function(imgs)
 {
-	var imgs = document.getElementsByTagName("img");
+	if(imgs===undefined) {
+		imgs = document.getElementsByTagName("img");
+	}
 	var sufs = ["tif","tiff","dng","cr2","nef"]
 	for (var i=0; i<imgs.length; i++)
 	{
-		var img=imgs[i], src=img.getAttribute("src");  if(src==null) continue;
+		var img=imgs[i],
+		    src=img.src;
+		if(src==="")
+			continue;
 		var suff=src.split(".").pop().toLowerCase();
-		if(sufs.indexOf(suff)==-1) continue;
+		if(sufs.indexOf(suff)===-1)
+			continue;
 		var xhr = new XMLHttpRequest();  UTIF._xhrs.push(xhr);  UTIF._imgs.push(img);
 		xhr.open("GET", src);  xhr.responseType = "arraybuffer";
 		xhr.onload = UTIF._imgLoaded;   xhr.send();
@@ -976,9 +982,13 @@ UTIF.replaceIMG = function()
 UTIF._xhrs = [];  UTIF._imgs = [];
 UTIF._imgLoaded = function(e)
 {
-	var buff = e.target.response;
-	var ifds = UTIF.decode(buff);  //console.log(ifds);
-	var vsns = ifds, ma=0, page=vsns[0];  if(ifds[0].subIFD) vsns = vsns.concat(ifds[0].subIFD);
+	var buff = e.target.response,
+		ifds = UTIF.decode(buff);
+		vsns = ifds,
+		ma=0,
+		page=vsns[0];
+	if(ifds[0].subIFD)
+		vsns = vsns.concat(ifds[0].subIFD);
 	for(var i=0; i<vsns.length; i++) {
 		var img = vsns[i];
 		if(img["t258"]==null || img["t258"].length<3) continue;
@@ -986,14 +996,23 @@ UTIF._imgLoaded = function(e)
 		if(ar>ma) {  ma=ar;  page=img;  }
 	}
 	UTIF.decodeImage(buff, page, ifds);
-	var rgba = UTIF.toRGBA8(page), w=page.width, h=page.height;
-	var ind = UTIF._xhrs.indexOf(e.target), img = UTIF._imgs[ind];
+	var rgba = UTIF.toRGBA8(page),
+		w=page.width,
+		h=page.height,
+		ind = UTIF._xhrs.indexOf(e.target),
+		img = UTIF._imgs[ind];
 	UTIF._xhrs.splice(ind,1);  UTIF._imgs.splice(ind,1);
-	var cnv = document.createElement("canvas");  cnv.width=w;  cnv.height=h;
-	var ctx = cnv.getContext("2d"), imgd = ctx.createImageData(w,h);
-	for(var i=0; i<rgba.length; i++) imgd.data[i]=rgba[i];       ctx.putImageData(imgd,0,0);
+	var cnv = document.createElement("canvas");
+	cnv.width=w;
+	cnv.height=h;
+	var ctx = cnv.getContext("2d"),
+	    imgd = ctx.createImageData(w,h);
+	for(var i=0; i<rgba.length; i++)
+		imgd.data[i]=rgba[i];
+	ctx.putImageData(imgd,0,0);
 	var attr = ["style","class","id"];
-	for(var i=0; i<attr.length; i++) cnv.setAttribute(attr[i], img.getAttribute(attr[i]));
+	for(var i=0; i<attr.length; i++)
+		cnv.setAttribute(attr[i], img.getAttribute(attr[i]));
 	img.parentNode.replaceChild(cnv,img);
 }
 
