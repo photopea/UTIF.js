@@ -1044,13 +1044,13 @@ UTIF.toRGBA8 = function(out)
 
 UTIF.replaceIMG = function(imgs)
 {
-	if(imgs==null) imgs = document.getElementsByTagName("img");
+	if(imgs===undefined) imgs = document.getElementsByTagName("img");
 	var sufs = ["tif","tiff","dng","cr2","nef"]
 	for (var i=0; i<imgs.length; i++)
 	{
-		var img=imgs[i], src=img.getAttribute("src");  if(src==null) continue;
+		var img=imgs[i], src=img.src;  if(src==="") continue;
 		var suff=src.split(".").pop().toLowerCase();
-		if(sufs.indexOf(suff)==-1) continue;
+		if(sufs.indexOf(suff)===-1) continue;
 		var xhr = new XMLHttpRequest();  UTIF._xhrs.push(xhr);  UTIF._imgs.push(img);
 		xhr.open("GET", src);  xhr.responseType = "arraybuffer";
 		xhr.onload = UTIF._imgLoaded;   xhr.send();
