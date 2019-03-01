@@ -1076,9 +1076,7 @@ UTIF._imgLoaded = function(e)
 	var cnv = document.createElement("canvas");  cnv.width=w;  cnv.height=h;
 	var ctx = cnv.getContext("2d"), imgd = ctx.createImageData(w,h);
 	for(var i=0; i<rgba.length; i++) imgd.data[i]=rgba[i];       ctx.putImageData(imgd,0,0);
-	var attr = ["style","class","id"];
-	for(var i=0; i<attr.length; i++) cnv.setAttribute(attr[i], img.getAttribute(attr[i]));
-	img.parentNode.replaceChild(cnv,img);
+	img.setAttribute("src",cnv.toDataURL());
 }
 
 
