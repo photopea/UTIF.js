@@ -56,8 +56,7 @@ If you are not a programmer, you can use TIFF images directly inside the `<img>`
 ...
 <img src="image.tif" />  <img src="dog.tif" /> ...
 ```
-And UTIF.js will do the rest. Internally, an Image elements will be replaced by a Canvas elements. The attributes "id", "class" and "style" will be copied from the original Image to the new Canvas. Use CSS to style such images.
-
+And UTIF.js will do the rest. Internally, the "src" attribute of the image will be replaced with a new URI of the image (base64-encoded PNG).
 
 ## Encoding TIFF images
 
