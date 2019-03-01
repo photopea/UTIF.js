@@ -56,7 +56,7 @@ If you are not a programmer, you can use TIFF images directly inside the `<img>`
 ...
 <img src="image.tif" />  <img src="dog.tif" /> ...
 ```
-And UTIF.js will do the rest. Internally, the "src" attribute of the image will be replaced with a new URI of the image (base64-encoded PNG).
+And UTIF.js will do the rest. Internally, the "src" attribute of the image will be replaced with a new URI of the image (base64-encoded PNG). Note, that you can also insert DNG, CR2, NEF and other raw images into HTML this way.
 
 ## Encoding TIFF images
 
