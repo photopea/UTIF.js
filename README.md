@@ -5,6 +5,8 @@ A small, fast and advanced TIFF / EXIF (+ DNG, CR2, NEF and other TIFF-ish files
 * Supports Fax 3 and Fax 4 (CCITT), JPEG, LZW, PackBits and other compressions (1,3,4,5,6,7,8,32773,32809)
 * E.g. [this 8 MPix image](//www.photopea.com/api/img/G4.TIF) with Fax 4 compression is just 56 kB ( [Open in Photopea](https://www.photopea.com?p=%7B%22files%22:%5B%22//www.photopea.com/api/img/G4.TIF%22%5D%7D) )
 
+For RAW files, UTIF.js only decodes raw sensor data (and JPG previews, if there are any). It does not convert the raw data into a displayable image (RGBA). Such conversion is complex and out of scope of this library.
+
 ## Installation
 
 Download and include the `UTIF.js` file in your code. If you're in NodeJS or otherwise using NPM, run:
