@@ -983,7 +983,7 @@ UTIF._writeIFD = function(bin, data, offset, ifd)
 UTIF.toRGBA8 = function(out)
 {
 	var w = out.width, h = out.height, area = w*h, qarea = area*4, data = out.data;
-	var img = new Uint8Array(area*4);
+	var img = new Uint8ClampedArray(area*4);
 	//console.log(out);
 	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask, 5: CMYK
 	var intp = (out["t262"] ? out["t262"][0]: 2), bps = (out["t258"]?Math.min(32,out["t258"][0]):1);
