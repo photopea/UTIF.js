@@ -46,9 +46,10 @@ this.K(a):this.J(a);if(f)return this.H(a)}return a}}; UTIF.JpegDecoder=g})()})()
 //UTIF.JpegDecoder = PDFJS.JpegImage;
 
 
-UTIF.encodeImage = function(rgba, w, h, metadata)
+UTIF.encodeImage = function(rgba, w, h, metadata, descriptionSize=0)
 {
-	var idf = { "t256":[w], "t257":[h], "t258":[8,8,8,8], "t259":[1], "t262":[2], "t273":[1000], // strips offset
+	var offset = 1000 + descriptionSize;
+	var idf = { "t256":[w], "t257":[h], "t258":[8,8,8,8], "t259":[1], "t262":[2], "t270": ["{}"], "t273":[offset], // strips offset
 				"t277":[4], "t278":[h], /* rows per strip */          "t279":[w*h*4], // strip byte counts
 				"t282":[1], "t283":[1], "t284":[1], "t286":[0], "t287":[0], "t296":[1], "t305": ["Photopea (UTIF.js)"], "t338":[1]
 		};
@@ -56,11 +57,36 @@ UTIF.encodeImage = function(rgba, w, h, metadata)
 	
 	var prfx = new Uint8Array(UTIF.encode([idf]));
 	var img = new Uint8Array(rgba);
-	var data = new Uint8Array(1000+w*h*4);
+	var data = new Uint8Array(offset+w*h*4);
 	for(var i=0; i<prfx.length; i++) data[i] = prfx[i];
-	for(var i=0; i<img .length; i++) data[1000+i] = img[i];
+	for(var i=0; i<img .length; i++) data[offset+i] = img[i];
 	return data.buffer;
-}
+};
+
+UTIF.encodeGrayscale = function(rgba, w, h, metadata, descriptionSize=0)
+{
+	var offset = 1000 + descriptionSize;
+	// differences from encodeImage:
+	// t258 (BitsPerSample) is 8-bit, 1 channel
+	// t262 (PhotometricInterpretation) PHOTOMETRIC_MINISBLACK = 1
+	// t277 (SamplesPerPixel) expecting rgba data
+	// t279 (StripByteCounts) changes due to 1 channel
+	// t338 (ExtraSamples) removed
+
+	var idf = { "t256":[w], "t257":[h], "t258":[8], "t259":[1], "t262":[1], "t270": ["{}"], "t273":[offset], // strips offset
+			"t277":[1], "t278":[h], /* rows per strip */          "t279":[w*h], // strip byte counts
+			"t282":[1], "t283":[1], "t284":[1], "t286":[0], "t287":[0], "t296":[1], "t305": ["Photopea (UTIF.js)"]
+		};
+	if (metadata) for (var i in metadata) idf[i] = metadata[i];
+
+	var prfx = new Uint8Array(UTIF.encode([idf]));
+	var img = new Uint8Array(rgba);
+		var data = new Uint8Array(offset+w*h);
+		for(var i=0; i<prfx.length; i++) data[i] = prfx[i];
+		for(var i=0, j = 0; i<img .length; i += 4, j++) data[offset+j] = img[i];
+		return data.buffer;
+	};
+
 
 UTIF.encode = function(ifds)
 {
@@ -888,7 +914,7 @@ UTIF.decode._decodeLZW = function(data, off, tgt, toff)
 UTIF.decode._copyData = function(s,so,t,to,l) {  for(var i=0;i<l;i+=4) {  t[to+i]=s[so+i];  t[to+i+1]=s[so+i+1];  t[to+i+2]=s[so+i+2];  t[to+i+3]=s[so+i+3];  }  }
 
 UTIF.tags = {};
-UTIF.ttypes = {  256:3,257:3,258:3,   259:3, 262:3,  273:4,  274:3, 277:3,278:4,279:4, 282:5, 283:5, 284:3, 286:5,287:5, 296:3, 305:2, 306:2, 338:3, 513:4, 514:4, 34665:4  };
+UTIF.ttypes = {  256:3, 257:3, 258:3, 259:3, 262:3, 270:2, 273:4,  274:3, 277:3, 278:4, 279:4, 282:5, 283:5, 284:3, 286:5, 287:5, 296:3, 305:2, 306:2, 338:3, 513:4, 514:4, 34665:4  };
 
 UTIF._readIFD = function(bin, data, offset, ifds, depth, debug)
 {
