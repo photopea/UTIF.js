@@ -1,7 +1,3 @@
-
-
-
-
 ;(function(){
 var UTIF = {};
 
@@ -1044,11 +1040,13 @@ UTIF.toRGBA8 = function(out)
 
 UTIF.replaceIMG = function(imgs)
 {
-	if(imgs==null) imgs = document.getElementsByTagName("img");
-	var sufs = ["tif","tiff","dng","cr2","nef"]
+	if(imgs===undefined) imgs = document.getElementsByTagName("img");
+	var sufs = ["tif","tiff","dng","cr2","nef"];
 	for (var i=0; i<imgs.length; i++)
 	{
-		var img=imgs[i], src=img.getAttribute("src");  if(src==null) continue;
+		var img=imgs[i],
+		    src=img.getAttribute("src");
+		if(src==null) continue;
 		var suff=src.split(".").pop().toLowerCase();
 		if(sufs.indexOf(suff)==-1) continue;
 		var xhr = new XMLHttpRequest();  UTIF._xhrs.push(xhr);  UTIF._imgs.push(img);
@@ -1060,12 +1058,17 @@ UTIF.replaceIMG = function(imgs)
 UTIF._xhrs = [];  UTIF._imgs = [];
 UTIF._imgLoaded = function(e)
 {
-	var buff = e.target.response;
-	var ifds = UTIF.decode(buff);  //console.log(ifds);
-	var vsns = ifds, ma=0, page=vsns[0];  if(ifds[0].subIFD) vsns = vsns.concat(ifds[0].subIFD);
+	var buff = e.target.response,
+		ifds = UTIF.decode(buff),  //console.log(ifds)
+		vsns = ifds,
+		ma=0,
+		page=vsns[0];
+	if(ifds[0].subIFD)
+		vsns = vsns.concat(ifds[0].subIFD);
 	for(var i=0; i<vsns.length; i++) {
 		var img = vsns[i];
-		if(img["t258"]==null || img["t258"].length<3) continue;
+		if(img["t258"]==null || img["t258"].length<3)
+			continue;
 		var ar = img["t256"]*img["t257"];
 		if(ar>ma) {  ma=ar;  page=img;  }
 	}
