@@ -83,7 +83,6 @@ UTIF.encode = function(ifds)
 UTIF.decode = function(buff, prm)
 {
 	if(prm==null) prm = {parseMN:true, debug:false};  // read MakerNote, debug
-	UTIF.decode._decodeG3.allow2D = null;
 	var data = new Uint8Array(buff), offset = 0;
 
 	var id = UTIF._binBE.readASCII(data, offset, 2);  offset+=2;
@@ -162,7 +161,7 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 	//var time = Date.now();
 	if(false) {}
 	else if(cmpr==1 || (len==tgt.length && cmpr!=32767)) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
-	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo);
+	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo, img["t292"]?((img["t292"][0]&1)==1):false);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
 	else if(cmpr==6) UTIF.decode._decodeOldJPEG(img, data, off, len, tgt, toff);
@@ -757,12 +756,12 @@ UTIF.decode._makeDiff = function(line)
 	out.push(line.length,0,line.length,1);  return out;
 }
 
-UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
+UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo, twoDim)
 {
 	var U = UTIF.decode, boff=off<<3, len=0, wrd="";
 	var line=[], pline=[];  for(var i=0; i<w; i++) line.push(0);
 	var a0=0, a1=0, a2=0, b1=0, b2=0, clr=0;
-	var y=-1, mode="", toRead=0, is1D=false;
+	var y=-1, mode="", toRead=0, is1D=true;
 	var bipl = Math.ceil(w/8)*8;
 	while((boff>>>3)<off+slen)
 	{
@@ -800,11 +799,11 @@ UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo)
 		if(wrd.endsWith("000000000001")) // needed for some files
 		{
 			if(y>=0) U._writeBits(line, tgt, toff*8+y*bipl);
-			if(fo==1) is1D = ((data[boff>>>3]>>>(7-(boff&7)))&1)==1;
-			if(fo==2) is1D = ((data[boff>>>3]>>>(  (boff&7)))&1)==1;
-			boff++;
-			if(U._decodeG3.allow2D==null) U._decodeG3.allow2D=is1D;
-			if(!U._decodeG3.allow2D) {  is1D = true;  boff--;  }
+			if(twoDim) {
+				if(fo==1) is1D = ((data[boff>>>3]>>>(7-(boff&7)))&1)==1;
+				if(fo==2) is1D = ((data[boff>>>3]>>>(  (boff&7)))&1)==1;
+				boff++;
+			}
 			//log("EOL",y, "next 1D:", is1D);
 			wrd="";  clr=0;  y++;  a0=0;
 			pline=U._makeDiff(line);  line=[];
