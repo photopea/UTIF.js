@@ -60,6 +60,7 @@ UTIF.encodeImage = function(rgba, w, h, metadata)
 	return data.buffer;
 }
 
+// ToDo: BigTIFFF encode?
 UTIF.encode = function(ifds)
 {
 	var LE = false;
@@ -83,17 +84,37 @@ UTIF.encode = function(ifds)
 UTIF.decode = function(buff, prm)
 {
 	if(prm==null) prm = {parseMN:true, debug:false};  // read MakerNote, debug
-	var data = new Uint8Array(buff), offset = 0;
+	var data = new Uint8Array(buff), offset = 0n;
 
-	var id = UTIF._binBE.readASCII(data, offset, 2);  offset+=2;
+	var id = UTIF._binBE.readASCII(data, offset, 2n);  offset+=2n;
 	var bin = id=="II" ? UTIF._binLE : UTIF._binBE;
-	var num = bin.readUshort(data, offset);  offset+=2;
+	var version_num = bin.readUshort(data, offset);  offset+=2n;
+	console.log(version_num);
+	var isBigTIFF = (version_num==43n);
+	console.log(isBigTIFF);
 
-	var ifdo = bin.readUint(data, offset);  offset+=4;
+	if (isBigTIFF) {
+		var always8 = bin.readUshort(data, offset);  offset+=2n;
+		var always0 = bin.readUshort(data, offset);  offset+=2n;
+		console.log('always8 always0 : ', always8, always0);
+		var ifdo = bin.readUlong(data, offset);  offset+=8n;
+		console.log('ifdo : ', ifdo);
+		var ifds = [];
+		while(true) {
+			var noff = UTIF._readIFD_BigTIFF(bin, data, ifdo, ifds, 0, prm);
+            ifdo = bin.readUlong(data, noff);
+            console.log(ifdo);
+			if(ifdo==0 || noff==0) break;
+		}
+		return ifds;
+	}
+	var ifdo = BigInt(bin.readUint(data, offset));  offset+=4n;
+	console.log('ifdo : ',ifdo);
 	var ifds = [];
 	while(true) {
 		var noff = UTIF._readIFD(bin, data, ifdo, ifds, 0, prm);
-		ifdo = bin.readUint(data, noff);
+		ifdo = BigInt(bin.readUint(data, noff));
+		console.log(ifdo);
 		if(ifdo==0 || noff==0) break;
 	}
 	return ifds;
@@ -102,7 +123,7 @@ UTIF.decode = function(buff, prm)
 UTIF.decodeImage = function(buff, img, ifds)
 {
 	var data = new Uint8Array(buff);
-	var id = UTIF._binBE.readASCII(data, 0, 2);
+	var id = UTIF._binBE.readASCII(data, 0n, 2n);
 
 	if(img["t256"]==null) return;	// No width => probably not an image
 	img.isLE = id=="II";
@@ -820,8 +841,28 @@ UTIF.decode._writeBits = function(bits, tgt, boff)
 }
 
 UTIF.decode._decodeLZW = function(){var x={},y=function(L,F,i,W,_){for(var a=0;a<_;a+=4){i[W+a]=L[F+a];
-i[W+a+1]=L[F+a+1];i[W+a+2]=L[F+a+2];i[W+a+3]=L[F+a+3]}},c=function(L,F,i,W){if(!x.c){var _=new Uint32Array(65535),a=new Uint16Array(65535),Z=new Uint8Array(2e6);
-for(var f=0;f<256;f++){Z[f<<2]=f;_[f]=f<<2;a[f]=1}x.c=[_,a,Z]}var o=x.c[0],z=x.c[1],Z=x.c[2],h=258,n=258<<2,k=9,C=F<<3,m=256,B=257,p=0,O=0,K=0;
+i[W+a+1]=L[F+a+1];i[W+a+2]=L[F+a+2];i[W+a+3]=L[F+a+3]}},c=function(L,F,i,W){if(!x.c){
+	var _=new Uint32Array(65535),a=new Uint16Array(65535),Z=new Uint8Array(2e6);
+for(var f=0;f<256;f++){
+	Z[f<<2]=f;
+	_[f]=f<<2;
+	a[f]=1
+}
+x.c=[_,a,Z]
+}
+var o=x.c[0];
+var z=x.c[1];
+var Z=x.c[2];
+var h=258;
+var n=258<<2;
+var k=9;
+// ??????
+var C=Number(F)<<3;
+var m=256;
+var B=257;
+var p=0;
+var O=0;
+var K=0;
 while(!0){p=L[C>>>3]<<16|L[C+8>>>3]<<8|L[C+16>>>3];O=p>>24-(C&7)-k&(1<<k)-1;C+=k;if(O==B)break;if(O==m){k=9;
 h=258;n=258<<2;p=L[C>>>3]<<16|L[C+8>>>3]<<8|L[C+16>>>3];O=p>>24-(C&7)-k&(1<<k)-1;C+=k;if(O==B)break;
 i[W]=O;W++}else if(O<h){var J=o[O],q=z[O];y(Z,J,i,W,q);W+=q;if(K>=h){o[h]=n;Z[o[h]]=J[0];z[h]=1;n=n+1+3&~3;
@@ -848,35 +889,145 @@ UTIF._types = function() {
 	}
 }();
 
-UTIF._readIFD = function(bin, data, offset, ifds, depth, prm)
+UTIF._readIFD_BigTIFF = function(bin, data, offset, ifds, depth, prm)
 {
-	var cnt = bin.readUshort(data, offset);  offset+=2;
+	var cnt = bin.readUlong(data, offset);  offset+=8n;
 	var ifd = {};
 
 	if(prm.debug) log("   ".repeat(depth),ifds.length-1,">>>----------------");
-	for(var i=0; i<cnt; i++)
+	for(var i=0n; i<cnt; i++)
 	{
-		var tag  = bin.readUshort(data, offset);    offset+=2;
-		var type = bin.readUshort(data, offset);    offset+=2;
-		var num  = bin.readUint  (data, offset);    offset+=4;
-		var voff = bin.readUint  (data, offset);    offset+=4;
-		
+		var tag  = bin.readUshort(data, offset);    offset+=2n;
+		var type = bin.readUshort(data, offset);    offset+=2n;
+		var num  = bin.readUlong (data, offset);    offset+=8n;
+		var voff = bin.readUlong (data, offset);    offset+=8n;
+		console.log(tag, type, num, voff);
 		var arr = [];
 		//ifd["t"+tag+"-"+UTIF.tags[tag]] = arr;
 		if(type== 1 || type==7) {  arr = new Uint8Array(data.buffer, (num<5 ? offset-4 : voff), num);  }
-		if(type== 2) {  var o0 = (num<5 ? offset-4 : voff), c=data[o0], len=Math.max(0, Math.min(num-1,data.length-o0));
-						if(c<128 || len==0) arr.push( bin.readASCII(data, o0, len) );
-						else      arr = new Uint8Array(data.buffer, o0, len);  }
-		if(type== 3) {  for(var j=0; j<num; j++) arr.push(bin.readUshort(data, (num<3 ? offset-4 : voff)+2*j));  }
+		if(type== 2) {  
+            var o0 = (num<9n ? offset-8n : voff);
+            console.log('o0 : ', o0);
+            var len = num-1n;
+            // var c=data[o0];
+            // console.log('c : ', c);
+            // var len=Math.max(0n, Math.min(num-1n,BigInt(data.length)-o0));
+            // console.log(o0, c, len);
+            // if(c<128n || len==0n) 
+                arr.push( bin.readASCII(data, o0, len) );
+            // else
+            //     arr = new Uint8Array(data.buffer, o0, len);
+        }
+		if(type== 3) {  
+			for(var j=0n; j<num; j++) {
+				arr.push(bin.readUshort(data, (num<5n ? offset-8n : voff)+2n*j));
+			}
+		}
 		if(type== 4 
-		|| type==13) {  for(var j=0; j<num; j++) arr.push(bin.readUint  (data, (num<2 ? offset-4 : voff)+4*j));  }
+		|| type==13) {  
+            for(var j=0n; j<num; j++) arr.push(bin.readUint  (data, (num<3n ? offset-8n : voff)+4n*j));  
+        }
 		if(type== 5 || type==10) {  
 			var ri = type==5 ? bin.readUint : bin.readInt;
 			for(var j=0; j<num; j++) arr.push([ri(data, voff+j*8), ri(data,voff+j*8+4)]);  }
 		if(type== 8) {  for(var j=0; j<num; j++) arr.push(bin.readShort (data, (num<3 ? offset-4 : voff)+2*j));  }
 		if(type== 9) {  for(var j=0; j<num; j++) arr.push(bin.readInt   (data, (num<2 ? offset-4 : voff)+4*j));  }
 		if(type==11) {  for(var j=0; j<num; j++) arr.push(bin.readFloat (data, voff+j*4));  }
-		if(type==12) {  for(var j=0; j<num; j++) arr.push(bin.readDouble(data, voff+j*8));  }
+        if(type==12) {  
+            for(var j=0n; j<num; j++) arr.push(bin.readDouble(data, (num<2n ? offset-8n : voff)+8n*j));
+        }
+        if(type==16) {  
+            for(var j=0n; j<num; j++) arr.push(bin.readUlong(data, (num<2n ? offset-8n : voff)+8n*j));  
+        }
+		
+		ifd["t"+tag] = arr;
+		
+		if(num!=0 && arr.length==0) {  log(tag, "unknown TIFF tag type: ", type, "num:",num);  if(i==0)return;  continue;  }
+		if(prm.debug) log("   ".repeat(depth), tag, type, UTIF.tags[tag], arr);
+		
+		if(tag==330 && ifd["t272"] && ifd["t272"][0]=="DSLR-A100") {  } 
+		else if(tag==330 || tag==34665 || tag==34853 || (tag==50740 && bin.readUshort(data,bin.readUint(arr,0))<300  ) ||tag==61440) {
+			var oarr = tag==50740 ? [bin.readUint(arr,0)] : arr;
+			var subfd = [];
+			for(var j=0; j<oarr.length; j++) UTIF._readIFD_BigTIFF(bin, data, oarr[j], subfd, depth+1, prm);
+			if(tag==  330) ifd.subIFD = subfd;
+			if(tag==34665) ifd.exifIFD = subfd[0];
+			if(tag==34853) ifd.gpsiIFD = subfd[0];  //console.log("gps", subfd[0]);  }
+			if(tag==50740) ifd.dngPrvt = subfd[0];
+			if(tag==61440) ifd.fujiIFD = subfd[0];
+		}
+		if(tag==37500 && prm.parseMN) {
+			var mn = arr;
+			//console.log(bin.readASCII(mn,0,mn.length), mn);
+			if(bin.readASCII(mn,0,5)=="Nikon")  ifd.makerNote = UTIF["decode"](mn.slice(10).buffer)[0];
+			else if(bin.readUshort(data,voff)<300 && bin.readUshort(data,voff+4)<=12){
+				var subsub=[];  UTIF._readIFD_BigTIFF(bin, data, voff, subsub, depth+1, prm);
+				ifd.makerNote = subsub[0];
+			}
+		}
+	}
+	ifds.push(ifd);
+    if(prm.debug) log("   ".repeat(depth),"<<<---------------");
+    console.log(ifd);
+	return offset;
+}
+
+
+UTIF._readIFD = function(bin, data, offset, ifds, depth, prm)
+{
+	console.log('readIFD : ', bin, data, offset);
+	var cnt = bin.readUshort(data, offset);  offset+=2n;
+	var ifd = {};
+
+	if(prm.debug) log("   ".repeat(depth),ifds.length-1,">>>----------------");
+	for(var i=0; i<cnt; i++)
+	{
+		var tag  = bin.readUshort(data, offset);    offset+=2n;
+		var type = bin.readUshort(data, offset);    offset+=2n;
+		var num  = BigInt(bin.readUint  (data, offset));    offset+=4n;
+		var voff = BigInt(bin.readUint  (data, offset));    offset+=4n;
+		// console.log(tag, type, num, voff);
+		var arr = [];
+		//ifd["t"+tag+"-"+UTIF.tags[tag]] = arr;
+		if(type== 1 || type==7) {  arr = new Uint8Array(data.buffer, (num<5 ? offset-4 : voff), num);  }
+		if(type== 2) {  
+			var o0 = (num<9n ? offset-8n : voff);
+            console.log('o0 : ', o0);
+            var len = num-1n;
+            // var c=data[o0];
+            // console.log('c : ', c);
+            // var len=Math.max(0n, Math.min(num-1n,BigInt(data.length)-o0));
+            // console.log(o0, c, len);
+            // if(c<128n || len==0n) 
+                arr.push( bin.readASCII(data, o0, len) );
+            // else
+            //     arr = new Uint8Array(data.buffer, o0, len);
+			// var o0 = (num<5n ? offset-4n : voff);
+			// var c=data[o0];
+			// var len=Math.max(0, Math.min(num-1,data.length-o0));
+			// if(c<128 || len==0) 
+			// 	arr.push( bin.readASCII(data, o0, len) );
+			// else
+			// 	arr = new Uint8Array(data.buffer, o0, len);  
+		}
+		if(type== 3) {  
+			for(var j=0n; j<num; j++) {
+				arr.push(bin.readUshort(data, (num<3n ? offset-4n : voff)+2n*j));
+			}  
+		}
+		if(type== 4 
+		|| type==13) {  
+			for(var j=0n; j<num; j++) arr.push(bin.readUint  (data, (num<2n ? offset-4n : voff)+4n*j));  
+		}
+		if(type== 5 || type==10) {  
+			var ri = type==5 ? bin.readUint : bin.readInt;
+			for(var j=0; j<num; j++) arr.push([ri(data, voff+j*8), ri(data,voff+j*8+4)]);  }
+		if(type== 8) {  for(var j=0; j<num; j++) arr.push(bin.readShort (data, (num<3 ? offset-4 : voff)+2*j));  }
+		if(type== 9) {  for(var j=0; j<num; j++) arr.push(bin.readInt   (data, (num<2 ? offset-4 : voff)+4*j));  }
+		if(type==11) {  for(var j=0; j<num; j++) arr.push(bin.readFloat (data, voff+j*4));  }
+		if(type==12) {  
+			for(var j=0n; j<num; j++) arr.push(bin.readDouble(data, voff+j*8n));  
+		}
 		
 		ifd["t"+tag] = arr;
 		
@@ -1084,45 +1235,61 @@ UTIF._imgLoaded = function(e)
 UTIF._binBE =
 {
 	nextZero   : function(data, o) {  while(data[o]!=0) o++;  return o;  },
-	readUshort : function(buff, p) {  return (buff[p]<< 8) |  buff[p+1];  },
-	readShort  : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+1];  a[1]=buff[p+0];                                    return UTIF._binBE. i16[0];  },
-	readInt    : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+3];  a[1]=buff[p+2];  a[2]=buff[p+1];  a[3]=buff[p+0];  return UTIF._binBE. i32[0];  },
-	readUint   : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+3];  a[1]=buff[p+2];  a[2]=buff[p+1];  a[3]=buff[p+0];  return UTIF._binBE.ui32[0];  },
-	readASCII  : function(buff, p, l) {  var s = "";   for(var i=0; i<l; i++) s += String.fromCharCode(buff[p+i]);   return s; },
-	readFloat  : function(buff, p) {  var a=UTIF._binBE.ui8;  for(var i=0;i<4;i++) a[i]=buff[p+3-i];  return UTIF._binBE.fl32[0];  },
-	readDouble : function(buff, p) {  var a=UTIF._binBE.ui8;  for(var i=0;i<8;i++) a[i]=buff[p+7-i];  return UTIF._binBE.fl64[0];  },
+	readUshort : function(buff, p) {  return (buff[p]<< 8) |  buff[p+1n];  },
+	readShort  : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+1n];  a[1]=buff[p+0n];                                    return UTIF._binBE. i16[0];  },
+	readInt    : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+3n];  a[1]=buff[p+2n];  a[2]=buff[p+1n];  a[3]=buff[p+0n];  return UTIF._binBE. i32[0];  },
+	readUint   : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+3n];  a[1]=buff[p+2n];  a[2]=buff[p+1n];  a[3]=buff[p+0n];  return UTIF._binBE.ui32[0];  },
+	readUlong  : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+7n];  a[0]=buff[p+6n];  a[0]=buff[p+5n];  a[0]=buff[p+4n];  a[0]=buff[p+3n];  a[1]=buff[p+2n];  a[2]=buff[p+1n];  a[3]=buff[p+0n];  return UTIF._binBE.ui64[0];  },	
+	readUchar  : function(buff, p) {  return buff[p]; },
+	readASCII  : function(buff, p, l) {  var s = "";   for(var i=0n; i<l; i++) s += String.fromCharCode(buff[p+i]);   return s; },
+	readFloat  : function(buff, p) {  var a=UTIF._binBE.ui8;  for(var i=0n;i<4n;i++) a[i]=buff[p+3n-i];  return UTIF._binBE.fl32[0];  },
+	readDouble : function(buff, p) {  var a=UTIF._binBE.ui8;  for(var i=0n;i<8n;i++) a[i]=buff[p+7n-i];  return UTIF._binBE.fl64[0];  },
 
 	writeUshort: function(buff, p, n) {  buff[p] = (n>> 8)&255;  buff[p+1] =  n&255;  },
-	writeInt   : function(buff, p, n) {  var a=UTIF._binBE.ui8;  UTIF._binBE.i32[0]=n;  buff[p+3]=a[0];  buff[p+2]=a[1];  buff[p+1]=a[2];  buff[p+0]=a[3];  },
-	writeUint  : function(buff, p, n) {  buff[p] = (n>>24)&255;  buff[p+1] = (n>>16)&255;  buff[p+2] = (n>>8)&255;  buff[p+3] = (n>>0)&255;  },
-	writeASCII : function(buff, p, s) {  for(var i = 0; i < s.length; i++)  buff[p+i] = s.charCodeAt(i);  },
+	writeInt   : function(buff, p, n) {  var a=UTIF._binBE.ui8;  UTIF._binBE.i32[0]=n;  buff[p+3n]=a[0];  buff[p+2n]=a[1];  buff[p+1n]=a[2];  buff[p+0n]=a[3];  },
+	writeUint  : function(buff, p, n) {  buff[p] = (n>>24)&255;  buff[p+1n] = (n>>16)&255;  buff[p+2n] = (n>>8)&255;  buff[p+3n] = (n>>0)&255;  },
+	writeASCII : function(buff, p, s) {  for(var i = 0n; i < s.length; i++)  buff[p+i] = s.charCodeAt(i);  },
 	writeDouble: function(buff, p, n)
 	{
 		UTIF._binBE.fl64[0] = n;
-		for (var i = 0; i < 8; i++) buff[p + i] = UTIF._binBE.ui8[7 - i];
+		for (var i = 0n; i < 8n; i++) buff[p + i] = UTIF._binBE.ui8[7n - i];
 	}
 }
 UTIF._binBE.ui8  = new Uint8Array  (8);
 UTIF._binBE.i16  = new Int16Array  (UTIF._binBE.ui8.buffer);
 UTIF._binBE.i32  = new Int32Array  (UTIF._binBE.ui8.buffer);
 UTIF._binBE.ui32 = new Uint32Array (UTIF._binBE.ui8.buffer);
+UTIF._binBE.ui64 = new BigUint64Array (UTIF._binBE.ui8.buffer);
 UTIF._binBE.fl32 = new Float32Array(UTIF._binBE.ui8.buffer);
 UTIF._binBE.fl64 = new Float64Array(UTIF._binBE.ui8.buffer);
 
 UTIF._binLE =
 {
 	nextZero   : UTIF._binBE.nextZero,
-	readUshort : function(buff, p) {  return (buff[p+1]<< 8) |  buff[p];  },
-	readShort  : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+0];  a[1]=buff[p+1];                                    return UTIF._binBE. i16[0];  },
-	readInt    : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+0];  a[1]=buff[p+1];  a[2]=buff[p+2];  a[3]=buff[p+3];  return UTIF._binBE. i32[0];  },
-	readUint   : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+0];  a[1]=buff[p+1];  a[2]=buff[p+2];  a[3]=buff[p+3];  return UTIF._binBE.ui32[0];  },
+	readUshort : function(buff, p) {  return (buff[p+1n]<< 8) |  buff[p];  },
+	readShort  : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+0n];  a[1]=buff[p+1n];                                    return UTIF._binBE. i16[0];  },
+	readInt    : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+0n];  a[1]=buff[p+1n];  a[2]=buff[p+2n];  a[3]=buff[p+3n];  return UTIF._binBE. i32[0];  },
+	readUint   : function(buff, p) {  var a=UTIF._binBE.ui8;  a[0]=buff[p+0n];  a[1]=buff[p+1n];  a[2]=buff[p+2n];  a[3]=buff[p+3n];  return UTIF._binBE.ui32[0];  },
+	readUlong  : function(buff, p) {  
+		var a=UTIF._binBE.ui8;  
+		a[0]=buff[p+0n]; 
+		a[1]=buff[p+1n];
+		a[2]=buff[p+2n];
+		a[3]=buff[p+3n];
+		a[4]=buff[p+4n];
+		a[5]=buff[p+5n];
+		a[6]=buff[p+6n];
+		a[7]=buff[p+7n];
+		// console.log(a);
+		return UTIF._binBE.ui64[0];  },	
+	readUchar  : UTIF._binBE.readUchar,
 	readASCII  : UTIF._binBE.readASCII,
-	readFloat  : function(buff, p) {  var a=UTIF._binBE.ui8;  for(var i=0;i<4;i++) a[i]=buff[p+  i];  return UTIF._binBE.fl32[0];  },
-	readDouble : function(buff, p) {  var a=UTIF._binBE.ui8;  for(var i=0;i<8;i++) a[i]=buff[p+  i];  return UTIF._binBE.fl64[0];  },
+	readFloat  : function(buff, p) {  var a=UTIF._binBE.ui8;  for(var i=0n;i<4n;i++) a[i]=buff[p+  i];  return UTIF._binBE.fl32[0];  },
+	readDouble : function(buff, p) {  var a=UTIF._binBE.ui8;  for(var i=0n;i<8n;i++) a[i]=buff[p+  i];  return UTIF._binBE.fl64[0];  },
 	
-	writeUshort: function(buff, p, n) {  buff[p] = (n)&255;  buff[p+1] =  (n>>8)&255;  },
-	writeInt   : function(buff, p, n) {  var a=UTIF._binBE.ui8;  UTIF._binBE.i32[0]=n;  buff[p+0]=a[0];  buff[p+1]=a[1];  buff[p+2]=a[2];  buff[p+3]=a[3];  },
-	writeUint  : function(buff, p, n) {  buff[p] = (n>>>0)&255;  buff[p+1] = (n>>>8)&255;  buff[p+2] = (n>>>16)&255;  buff[p+3] = (n>>>24)&255;  },
+	writeUshort: function(buff, p, n) {  buff[p] = (n)&255;  buff[p+1n] =  (n>>8)&255;  },
+	writeInt   : function(buff, p, n) {  var a=UTIF._binBE.ui8;  UTIF._binBE.i32[0]=n;  buff[p+0n]=a[0];  buff[p+1n]=a[1];  buff[p+2n]=a[2];  buff[p+3]=a[3];  },
+	writeUint  : function(buff, p, n) {  buff[p] = (n>>>0)&255;  buff[p+1n] = (n>>>8)&255;  buff[p+2n] = (n>>>16)&255;  buff[p+3n] = (n>>>24)&255;  },
 	writeASCII : UTIF._binBE.writeASCII
 }
 UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
