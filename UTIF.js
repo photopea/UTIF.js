@@ -107,8 +107,8 @@ UTIF.encodeImage = function(pixelList, w, h, metadata)
 UTIF.encode = function(ifds)
 {
 	let data = new Uint8Array(20000);
-	const offset = 4;
-	const ifdsCount = ifds.length;
+	let offset = 4;
+	let ifdsCount = ifds.length;
 
 	// Big Endian or Little Endian ?
 	let LE = false;
@@ -149,8 +149,8 @@ UTIF.decode = function(buff, prm) {
 	const bin = id == "II" ? UTIF._binLE : UTIF._binBE;
 	const num = bin.readUshort(data, offset); offset+=2;
 
-	var ifdOffset = bin.readUint(data, offset); offset+=4;
-	var ifds = [];
+	let ifdOffset = bin.readUint(data, offset); offset+=4;
+	const ifds = [];
 
 	// Continue reading until last ifd tag
 	while(true) {
@@ -979,7 +979,7 @@ UTIF._readIFD = function(bin, data, offset, ifds, depth, prm)
 
 UTIF._writeIFD = function(bin, types, data, offset, ifd) {
 	const keys = Object.keys(ifd);
-	const ifdKeyCount = keys.length;
+	let ifdKeyCount = keys.length;
 
 	if (ifd["exifIFD"]) ifdKeyCount--;
 	if (ifd["gpsiIFD"]) ifdKeyCount--;
