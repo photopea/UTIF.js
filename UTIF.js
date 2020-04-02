@@ -78,10 +78,13 @@ UTIF.encodeImage = function(pixelList, w, h, metadata)
 
 	// Replace default metadata if specified
 	if (metadata) {
-		Object.values(metadata).forEach((key, value) => {
-			if (value === null) delete idf[key];
-			else idf[key] = value;
-		});
+		const idfKeys = Object.keys(metadata);
+
+		for (let i = 0; i < idfKeys.length; i += 1) {
+			const key = idfKeys[i];
+			if (metadata[key] === null) delete idf[key];
+			else idf[key] = metadata[key];
+		}
 	}
 
 	// Header content
