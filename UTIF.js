@@ -54,8 +54,8 @@ this.K(a):this.J(a);if (f)return this.H(a)}return a}}; UTIF.JpegDecoder=g})()})(
  * @param Object [optional]: IFD object
  * @return ArrayBuffer of the binary TIFF file
  */
-UTIF.encodeImage = function(pixelList, w, h, metadata)
-{
+UTIF.encodeImage = function(pixelList, w, h, metadata) {
+	// See TIFF Tags specifications : https://www.loc.gov/preservation/digital/formats/content/tiff_tags.shtml
 	let idf = {
 		"t256":[w], // Image width
 		"t257":[h], // Image length
