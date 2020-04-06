@@ -148,7 +148,7 @@ UTIF.decode = function(buff, prm) {
 	if (prm == null) prm = {parseMN:true, debug:false};  // read MakerNote, debug
 	const data = new Uint8Array(buff), offset = 0;
 
-	const id = UTIF._binBE.readASCII(data, offset, 2);  offset+=2;
+	let id = UTIF._binBE.readASCII(data, offset, 2);  offset+=2;
 	const bin = id == "II" ? UTIF._binLE : UTIF._binBE;
 	const num = bin.readUshort(data, offset); offset+=2;
 
