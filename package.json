@@ -1,7 +1,7 @@
 {
   "name": "utif",
   "description": "Fast and advanced TIFF decoder",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "homepage": "https://github.com/photopea/UTIF.js",
   "author": "photopea (https://github.com/photopea)",
   "contributors": [
