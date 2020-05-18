@@ -101,6 +101,7 @@ UTIF.decode = function(buff, prm)
 
 UTIF.decodeImage = function(buff, img, ifds)
 {
+	if(img.data) return;
 	var data = new Uint8Array(buff);
 	var id = UTIF._binBE.readASCII(data, 0, 2);
 
@@ -819,15 +820,12 @@ UTIF.decode._writeBits = function(bits, tgt, boff)
 	for(var i=0; i<bits.length; i++) tgt[(boff+i)>>>3] |= (bits[i]<<(7-((boff+i)&7)));
 }
 
-UTIF.decode._decodeLZW = function(){var x={},y=function(L,F,i,W,_){for(var a=0;a<_;a+=4){i[W+a]=L[F+a];
-i[W+a+1]=L[F+a+1];i[W+a+2]=L[F+a+2];i[W+a+3]=L[F+a+3]}},c=function(L,F,i,W){if(!x.c){var _=new Uint32Array(65535),a=new Uint16Array(65535),Z=new Uint8Array(2e6);
-for(var f=0;f<256;f++){Z[f<<2]=f;_[f]=f<<2;a[f]=1}x.c=[_,a,Z]}var o=x.c[0],z=x.c[1],Z=x.c[2],h=258,n=258<<2,k=9,C=F<<3,m=256,B=257,p=0,O=0,K=0;
-while(!0){p=L[C>>>3]<<16|L[C+8>>>3]<<8|L[C+16>>>3];O=p>>24-(C&7)-k&(1<<k)-1;C+=k;if(O==B)break;if(O==m){k=9;
-h=258;n=258<<2;p=L[C>>>3]<<16|L[C+8>>>3]<<8|L[C+16>>>3];O=p>>24-(C&7)-k&(1<<k)-1;C+=k;if(O==B)break;
-i[W]=O;W++}else if(O<h){var J=o[O],q=z[O];y(Z,J,i,W,q);W+=q;if(K>=h){o[h]=n;Z[o[h]]=J[0];z[h]=1;n=n+1+3&~3;
-h++}else{o[h]=n;var t=o[K],l=z[K];y(Z,t,Z,n,l);Z[n+l]=Z[J];l++;z[h]=l;h++;n=n+l+3&~3}if(h+1==1<<k)k++}else{if(K>=h){o[h]=n;
-z[h]=0;h++}else{o[h]=n;var t=o[K],l=z[K];y(Z,t,Z,n,l);Z[n+l]=Z[n];l++;z[h]=l;h++;y(Z,n,i,W,l);W+=l;n=n+l+3&~3}if(h+1==1<<k)k++}K=O}return W};
-return c}();
+UTIF.decode._decodeLZW = function(){var X,h,a,y,n=9,v=0,D=256,t=257,F=function(){var H=X>>>3,T=h[H]<<16|h[H+1]<<8|h[H+2],$=T>>>24-(X&7)-n&(1<<n)-1;
+X+=n;return $},z=new Uint32Array(4096*4),w=function(){n=9;if(v==0){for(var H=0;H<258;H++){z[4*H]=z[4*H+3]=H;
+z[4*H+1]=65535;z[4*H+2]=1}}v=258},J=function(H){var T=H<<2,$=z[T+2],o=y+$-1;while(T!=65535){a[o--]=z[T];
+T=z[T+1]}y+=$},d=function(H,T){var $=v<<2,o=H<<2;z[$]=z[(T<<2)+3];z[$+1]=o;z[$+2]=z[o+2]+1;z[$+3]=z[o+3];
+v++;if(v+1==1<<n&&n!=12)n++},x=function(H,T,$,o){X=T<<3;h=H;a=$;y=o;w();var V=0,r=0;while((V=F())!=t){if(V==D){w();
+V=F();if(V==t)break;J(V)}else{if(V<v){J(V);d(r,V)}else{d(r,r);J(v-1)}}r=V}return y};return x}()
 
 UTIF.tags = {};
 //UTIF.ttypes = {  256:3,257:3,258:3,   259:3, 262:3,  273:4,  274:3, 277:3,278:4,279:4, 282:5, 283:5, 284:3, 286:5,287:5, 296:3, 305:2, 306:2, 338:3, 513:4, 514:4, 34665:4  };
@@ -959,7 +957,7 @@ UTIF._writeIFD = function(bin, types, data, offset, ifd)
 	return [offset, eoff];
 }
 
-UTIF.toRGBA8 = function(out)
+UTIF.toRGBA8 = function(out, scl)
 {
 	var w = out.width, h = out.height, area = w*h, qarea = area*4, data = out.data;
 	var img = new Uint8Array(area*4);
@@ -982,12 +980,14 @@ UTIF.toRGBA8 = function(out)
 	{
 		var smpls = out["t258"]?out["t258"].length : 1;
 		var bpl = Math.ceil(smpls*bps*w/8);
+		if(scl==null) scl=1/256;
+		
 		for(var y=0; y<h; y++) {
 			var off = y*bpl, io = y*w;
 			if(bps== 1) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>3)])>>(7-  (i&7)))&1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
 			if(bps== 2) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>2)])>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
 			if(bps== 8) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i*smpls];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
-			if(bps==16) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+(2*i+1)];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
+			if(bps==16) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=off+(2*i), px=(data[o+1]<<8)|data[o];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,~~(px*scl));  img[qi+3]=255;    } // ladoga.tif
 		}
 	}
 	else if(intp==2)
