@@ -1075,8 +1075,11 @@ UTIF._imgLoaded = function(e)
 	var ind = UTIF._xhrs.indexOf(e.target), img = UTIF._imgs[ind];
 	UTIF._xhrs.splice(ind,1);  UTIF._imgs.splice(ind,1);
 	var cnv = document.createElement("canvas");  cnv.width=w;  cnv.height=h;
-	var ctx = cnv.getContext("2d"), imgd = ctx.createImageData(w,h);
-	for(var i=0; i<rgba.length; i++) imgd.data[i]=rgba[i];       ctx.putImageData(imgd,0,0);
+	var ctx = cnv.getContext("2d");
+	var imgd = new ImageData(new Uint8ClampedArray(rgba.buffer),w,h);
+	/*imgd = ctx.createImageData(w,h);
+	for(var i=0; i<rgba.length; i++) imgd.data[i]=rgba[i];   */    
+	ctx.putImageData(imgd,0,0);
 	img.setAttribute("src",cnv.toDataURL());
 }
 
