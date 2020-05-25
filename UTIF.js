@@ -164,7 +164,7 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 	else if(cmpr==1 || (len==tgt.length && cmpr!=32767)) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo, img["t292"]?((img["t292"][0]&1)==1):false);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
-	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, tgt, toff);
+	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, len, tgt, toff);
 	else if(cmpr==6) UTIF.decode._decodeOldJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==7) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
@@ -820,12 +820,12 @@ UTIF.decode._writeBits = function(bits, tgt, boff)
 	for(var i=0; i<bits.length; i++) tgt[(boff+i)>>>3] |= (bits[i]<<(7-((boff+i)&7)));
 }
 
-UTIF.decode._decodeLZW = function(){var X,h,a,y,n=9,v=0,D=256,t=257,F=function(){var H=X>>>3,T=h[H]<<16|h[H+1]<<8|h[H+2],$=T>>>24-(X&7)-n&(1<<n)-1;
-X+=n;return $},z=new Uint32Array(4096*4),w=function(){n=9;if(v==0){for(var H=0;H<258;H++){z[4*H]=z[4*H+3]=H;
-z[4*H+1]=65535;z[4*H+2]=1}}v=258},J=function(H){var T=H<<2,$=z[T+2],o=y+$-1;while(T!=65535){a[o--]=z[T];
-T=z[T+1]}y+=$},d=function(H,T){var $=v<<2,o=H<<2;z[$]=z[(T<<2)+3];z[$+1]=o;z[$+2]=z[o+2]+1;z[$+3]=z[o+3];
-v++;if(v+1==1<<n&&n!=12)n++},x=function(H,T,$,o){X=T<<3;h=H;a=$;y=o;w();var V=0,r=0;while((V=F())!=t){if(V==D){w();
-V=F();if(V==t)break;J(V)}else{if(V<v){J(V);d(r,V)}else{d(r,r);J(v-1)}}r=V}return y};return x}()
+UTIF.decode._decodeLZW=function(){var Q,C,D,F,B=9,p=0,w=256,x=257,V=function(){var J=Q>>>3,m=C[J]<<16|C[J+1]<<8|C[J+2],G=m>>>24-(Q&7)-B&(1<<B)-1;
+Q+=B;return G},g=new Uint32Array(4096*4),I=function(){B=9;if(p==0){for(var J=0;J<258;J++){g[4*J]=g[4*J+3]=J;
+g[4*J+1]=65535;g[4*J+2]=1}}p=258},n=function(J){var m=J<<2,G=g[m+2],o=F+G-1;while(m!=65535){D[o--]=g[m];
+m=g[m+1]}F+=G},c=function(J,m){var G=p<<2,o=J<<2;g[G]=g[(m<<2)+3];g[G+1]=o;g[G+2]=g[o+2]+1;g[G+3]=g[o+3];
+p++;if(p+1==1<<B&&B!=12)B++},a=function(J,m,G,o,E){Q=m<<3;C=J;D=o;F=E;var e=m+G<<3,q=0,N=0;I();while(Q<e&&(q=V())!=x){if(q==w){I();
+q=V();if(q==x)break;n(q)}else{if(q<p){n(q);c(N,q)}else{c(N,N);n(p-1)}}N=q}return F};return a}()
 
 UTIF.tags = {};
 //UTIF.ttypes = {  256:3,257:3,258:3,   259:3, 262:3,  273:4,  274:3, 277:3,278:4,279:4, 282:5, 283:5, 284:3, 286:5,287:5, 296:3, 305:2, 306:2, 338:3, 513:4, 514:4, 34665:4  };
