@@ -642,7 +642,7 @@ UTIF.decode._decodeOldJPEG = function(img, data, off, len, tgt, toff)
 	}
 
 	var parser = new UTIF.JpegDecoder();  parser.parse(buff);
-	var decoded = parser.getData(parser.width, parser.height);
+	var decoded = parser.getData({"width":parser.width,"height":parser.height,"forceRGB":true,"isSourcePDF":false});
 	for (var i=0; i<decoded.length; i++) tgt[toff + i] = decoded[i];
 
 	// PhotometricInterpretation is 6 (YCbCr) for JPEG, but after decoding we populate data in
