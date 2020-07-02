@@ -87,6 +87,10 @@ UTIF.encodeImage = function(pixelList, w, h, metadata) {
 		}
 	}
 
+	let channelCount = 4;
+	if (idf.t277) channelCount = idf.t277[0];
+	else if (idf.t258) channelCount = idf.t258.length;
+
 	// Header content
 	const prfx = new Uint8Array(UTIF.encode([idf]));
 	const prefixLength = prfx.length;
@@ -96,7 +100,7 @@ UTIF.encodeImage = function(pixelList, w, h, metadata) {
 	const imgLength = img.length;
 
 	// Write header + body
-	const data = new Uint8Array(1000 + w * h * 4);
+	const data = new Uint8Array(1000 + w * h * channelCount);
 	for (let i = 0; i < prefixLength; i++) data[i] = prfx[i];
 	for (let i = 0; i < imgLength; i++) data[1000 + i] = img[i];
 
@@ -113,21 +117,30 @@ UTIF.encode = function(ifds)
 	let offset = 4;
 	let ifdsCount = ifds.length;
 
+	let channelCount = 4;
+	let ifdOffset = 8;
+	if (ifdsCount) {
+		if (idfs[0].t277) channelCount = idfs[0].t277[0];
+		if (idfs[0].t258) {
+			ifdOffset = idfs[0].t258[0];
+			if (!idfs[0].t277) channelCount = idfs[0].t258.length;
+		}
+	}
+
 	// Big Endian or Little Endian ?
 	let LE = false;
 	const bin = LE ? UTIF._binLE : UTIF._binBE;
 	data[0] = data[1] = LE ? 73 : 77;
 	bin.writeUshort(data, 2, 42);
 
-	let ifdOffset = 8;
-	bin.writeUint(data, offset, ifdOffset);  offset += 4;
+	bin.writeUint(data, offset, ifdOffset);  offset += channelCount;
 
 	for (var i = 0; i < ifdsCount; i++) {
 		const noffs = UTIF._writeIFD(bin, UTIF._types.basic, data, ifdOffset, ifds[i]);
 		ifdOffset = noffs[1];
 
 		if (i < ifdsCount - 1) {
-			if ((ifdOffset & 3) != 0) ifdOffset += (4 - (ifdOffset & 3));  // make each IFD start at multiple of 4
+			if ((ifdOffset & 3) != 0) ifdOffset += (channelCount - (ifdOffset & 3));  // make each IFD start at multiple of 4
 			bin.writeUint(data, noffs[0], ifdOffset);
 		}
 	}
@@ -1067,61 +1080,59 @@ UTIF._writeIFD = function(bin, types, data, offset, ifd) {
 
 UTIF.toRGBA8 = function(out)
 {
-	var w = out.width, h = out.height, area = w*h, qarea = area*4, data = out.data;
-	var img = new Uint8Array(area*4);
+	var channelCount = out["t277"] ? out["t277"][0] : out["t258"] ? out["t258"].length : 3;
+	var w = out.width, h = out.height, area = w * h, qarea = area * channelCount, data = out.data;
+	var img = new Uint8Array(area * channelCount);
 	//console.log(out);
 	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask, 5: CMYK
-	var intp = (out["t262"] ? out["t262"][0]: 2), bps = (out["t258"]?Math.min(32,out["t258"][0]):1);
+	var intp = (out["t262"] ? out["t262"][0] : 2), bps = (out["t258"] ? Math.min(32, out["t258"][0]) : 1);
 	//log("interpretation: ", intp, "bps", bps, out);
 	if (false) {}
-	else if (intp==0)
-	{
+	else if (intp==0) {
 		var bpl = Math.ceil(bps*w/8);
 		for (var y=0; y<h; y++) {
 			var off = y*bpl, io = y*w;
-			if (bps== 1) for (let i = 0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>3)])>>(7-  (i&7)))& 1;  img[qi]=img[qi+1]=img[qi+2]=( 1-px)*255;  img[qi+3]=255;    }
-			if (bps== 4) for (let i = 0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>1)])>>(4-4*(i&1)))&15;  img[qi]=img[qi+1]=img[qi+2]=(15-px)* 17;  img[qi+3]=255;    }
-			if (bps== 8) for (let i = 0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i];  img[qi]=img[qi+1]=img[qi+2]=255-px;  img[qi+3]=255;    }
+			if (bps == 1) {
+				for (let i = 0; i<w; i++) {
+					var qi = (io + i) << 2;
+					var px = ((data[off + (i >> 3)]) >> (7 - (i & 7))) & 1;
+					img[qi] = img[qi + 1] = img[qi + 2] = (1 - px) * 255;
+					img[qi + 3] = 255;
+				}
+			}
+			if (bps == 4) for (let i = 0; i<w; i++) {  var qi = (io + i) << 2, px = ((data[off + (i >> 1)]) >> (4 - 4*(i&1)))&15;  img[qi]=img[qi+1]=img[qi+2]=(15-px)* 17;  img[qi+3]=255;    }
+			if (bps == 8) for (let i = 0; i<w; i++) {  var qi = (io + i) << 2, px = data[off + i];  img[qi]=img[qi+1]=img[qi+2]=255-px;  img[qi+3]=255;    }
 		}
-	}
-	else if (intp==1)
-	{
-		var smpls = out["t258"]?out["t258"].length : 1;
-		var bpl = Math.ceil(smpls*bps*w/8);
+	} else if (intp == 1) {
+		var bpl = Math.ceil(channelCount*bps*w/8);
 		for (var y=0; y<h; y++) {
 			var off = y*bpl, io = y*w;
 			if (bps== 1) for (let i = 0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>3)])>>(7-  (i&7)))&1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
 			if (bps== 2) for (let i = 0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>2)])>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
-			if (bps== 8) for (let i = 0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i*smpls];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
+			if (bps== 8) for (let i = 0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i*channelCount];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
 			if (bps==16) for (let i = 0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+(2*i+1)];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,px);  img[qi+3]=255;    } // ladoga.tif
 		}
-	}
-	else if (intp==2)
-	{
-		var smpls = out["t258"]?out["t258"].length : 3;
+	} else if (intp == 2) {
 
-		if (bps== 8)
-		{
-			if (smpls==4) for (let i = 0; i<qarea; i++) img[i] = data[i];
-			if (smpls==3) for (let i = 0; i< area; i++) {  var qi=i<<2, ti=i*3;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }
+		if (bps == 8) {
+			if (channelCount == 4) for (let i = 0; i<qarea; i++) img[i] = data[i];
+			if (channelCount == 3) for (let i = 0; i< area; i++) {  var qi=i<<2, ti=i*3;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }
 		}
-		else{  // 3x 16-bit channel
-			if (smpls==4) for (let i = 0; i<area; i++) {  var qi=i<<2, ti=i*8+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=data[ti+6];    }
-			if (smpls==3) for (let i = 0; i<area; i++) {  var qi=i<<2, ti=i*6+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=255;           }
+		else {  // 3x 16-bit channel
+			if (channelCount == 4) for (let i = 0; i<area; i++) {  var qi=i<<2, ti=i*8+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=data[ti+6];    }
+			if (channelCount == 3) for (let i = 0; i<area; i++) {  var qi=i<<2, ti=i*6+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=255;           }
 		}
 	}
 	else if (intp==3)
 	{
 		var map = out["t320"];
-		var smpls = out["t258"]?out["t258"].length : 1;
-		for (let i = 0; i<area; i++) {  var qi=i<<2, mi=data[i*smpls];  img[qi]=(map[mi]>>8);  img[qi+1]=(map[256+mi]>>8);  img[qi+2]=(map[512+mi]>>8);  img[qi+3]=255;    }
+		for (let i = 0; i<area; i++) {  var qi=i<<2, mi=data[i*channelCount];  img[qi]=(map[mi]>>8);  img[qi+1]=(map[256+mi]>>8);  img[qi+2]=(map[512+mi]>>8);  img[qi+3]=255;    }
 	}
 	else if (intp==5)
 	{
-		var smpls = out["t258"]?out["t258"].length : 4;
-		var gotAlpha = smpls>4 ? 1 : 0;
+		var gotAlpha = channelCount > 4 ? 1 : 0;
 		for (let i = 0; i<area; i++) {
-			var qi=i<<2, si=i*smpls;  var C=255-data[si], M=255-data[si+1], Y=255-data[si+2], K=(255-data[si+3])*(1/255);
+			var qi=i<<2, si=i*channelCount;  var C=255-data[si], M=255-data[si+1], Y=255-data[si+2], K=(255-data[si+3])*(1/255);
 			img[qi]=~~(C*K+0.5);  img[qi+1]=~~(M*K+0.5);  img[qi+2]=~~(Y*K+0.5);  img[qi+3]=255*(1-gotAlpha)+data[si+4]*gotAlpha;
 		}
 	}
