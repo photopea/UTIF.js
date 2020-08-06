@@ -162,7 +162,7 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, len, tgt, toff,8);
 	else if(cmpr==6) UTIF.decode._decodeOldJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==7) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
-	else if(cmpr==8) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
+	else if(cmpr==8 || cmpr==32946) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
 	else if(cmpr==32767) UTIF.decode._decodeARW(img, data, off, len, tgt, toff);
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff);
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
@@ -877,7 +877,7 @@ UTIF._readIFD = function(bin, data, offset, ifds, depth, prm)
 		
 		ifd["t"+tag] = arr;
 		
-		if(num!=0 && arr.length==0) {  log(tag, "unknown TIFF tag type: ", type, "num:",num);  if(i==0)return;  continue;  }
+		if(num!=0 && arr.length==0) {  log(tag, "unknown TIFF tag type: ", type, "num:",num);  if(i==0)return;  return;  }
 		if(prm.debug) log("   ".repeat(depth), tag, type, UTIF.tags[tag], arr);
 		
 		if(tag==330 && ifd["t272"] && ifd["t272"][0]=="DSLR-A100") {  } 
