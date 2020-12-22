@@ -87,9 +87,11 @@ UTIF.decode = function(buff, prm)
 	var ifdo = bin.readUint(data, offset);  offset+=4;
 	var ifds = [];
 	while(true) {
-		var noff = UTIF._readIFD(bin, data, ifdo, ifds, 0, prm);
-		ifdo = bin.readUint(data, noff);
-		if(ifdo==0 || noff==0) break;
+		var cnt = bin.readUshort(data,ifdo), typ = bin.readUshort(data,ifdo+4);  if(cnt!=0) if(typ<1 || 12<typ) {  log("error in TIFF");  break  };
+		UTIF._readIFD(bin, data, ifdo, ifds, 0, prm);
+		
+		ifdo = bin.readUint(data, ifdo+2+cnt*12);
+		if(ifdo==0) break;
 	}
 	return ifds;
 }
@@ -119,6 +121,7 @@ UTIF.decodeImage = function(buff, img, ifds)
 	var bipl = Math.ceil(img.width*bipp/8)*8;
 	var soff = img["t273"];  if(soff==null) soff = img["t324"];
 	var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [img.height*(bipl>>>3)];  if(bcnt==null) bcnt = img["t325"];
+	//bcnt[0] = Math.min(bcnt[0], data.length);  // Hasselblad, "RAW_HASSELBLAD_H3D39II.3FR"
 	var bytes = new Uint8Array(img.height*(bipl>>>3)), bilen = 0;
 
 	if(img["t322"]!=null) // tiled
@@ -156,13 +159,14 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 	//console.log("compression", cmpr);
 	//var time = Date.now();
 	if(false) {}
-	else if(cmpr==1 || (len==tgt.length && cmpr!=32767)) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
+	else if(cmpr==1/* || (len==tgt.length && cmpr!=32767)*/) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo, img["t292"]?((img["t292"][0]&1)==1):false);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, len, tgt, toff,8);
 	else if(cmpr==6) UTIF.decode._decodeOldJPEG(img, data, off, len, tgt, toff);
-	else if(cmpr==7) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
+	else if(cmpr==7 || cmpr==34892) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==8 || cmpr==32946) {  var src = new Uint8Array(data.buffer,off,len);  var bin = pako["inflate"](src);  for(var i=0; i<bin.length; i++) tgt[toff+i]=bin[i];  }
+	else if(cmpr==9) UTIF.decode._decodeVC5(data,off,len,tgt,toff);
 	else if(cmpr==32767) UTIF.decode._decodeARW(img, data, off, len, tgt, toff);
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff);
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
@@ -202,6 +206,32 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 		}
 	}
 }
+
+UTIF.decode._decodeVC5 = UTIF.decode._decodeVC5=function(){var e=[1,0,1,0,2,2,1,1,3,7,1,2,5,25,1,3,6,48,1,4,6,54,1,5,7,111,1,8,7,99,1,6,7,105,12,0,7,107,1,7,8,209,20,0,8,212,1,9,8,220,1,10,9,393,1,11,9,394,32,0,9,416,1,12,9,427,1,13,10,887,1,18,10,784,1,14,10,790,1,15,10,835,60,0,10,852,1,16,10,885,1,17,11,1571,1,19,11,1668,1,20,11,1669,100,0,11,1707,1,21,11,1772,1,22,12,3547,1,29,12,3164,1,24,12,3166,1,25,12,3140,1,23,12,3413,1,26,12,3537,1,27,12,3539,1,28,13,7093,1,35,13,6283,1,30,13,6331,1,31,13,6335,180,0,13,6824,1,32,13,7072,1,33,13,7077,320,0,13,7076,1,34,14,12565,1,36,14,12661,1,37,14,12669,1,38,14,13651,1,39,14,14184,1,40,15,28295,1,46,15,28371,1,47,15,25320,1,42,15,25336,1,43,15,25128,1,41,15,27300,1,44,15,28293,1,45,16,50259,1,48,16,50643,1,49,16,50675,1,50,16,56740,1,53,16,56584,1,51,16,56588,1,52,17,113483,1,61,17,113482,1,60,17,101285,1,55,17,101349,1,56,17,109205,1,57,17,109207,1,58,17,100516,1,54,17,113171,1,59,18,202568,1,62,18,202696,1,63,18,218408,1,64,18,218412,1,65,18,226340,1,66,18,226356,1,67,18,226358,1,68,19,402068,1,69,19,405138,1,70,19,405394,1,71,19,436818,1,72,19,436826,1,73,19,452714,1,75,19,452718,1,76,19,452682,1,74,20,804138,1,77,20,810279,1,78,20,810790,1,79,20,873638,1,80,20,873654,1,81,20,905366,1,82,20,905430,1,83,20,905438,1,84,21,1608278,1,85,21,1620557,1,86,21,1621582,1,87,21,1621583,1,88,21,1747310,1,89,21,1810734,1,90,21,1810735,1,91,21,1810863,1,92,21,1810879,1,93,22,3621725,1,99,22,3621757,1,100,22,3241112,1,94,22,3494556,1,95,22,3494557,1,96,22,3494622,1,97,22,3494623,1,98,23,6482227,1,102,23,6433117,1,101,23,6989117,1,103,23,6989119,1,105,23,6989118,1,104,23,7243449,1,106,23,7243512,1,107,24,13978233,1,111,24,12964453,1,109,24,12866232,1,108,24,14486897,1,113,24,13978232,1,110,24,14486896,1,112,24,14487026,1,114,24,14487027,1,115,25,25732598,1,225,25,25732597,1,189,25,25732596,1,188,25,25732595,1,203,25,25732594,1,202,25,25732593,1,197,25,25732592,1,207,25,25732591,1,169,25,25732590,1,223,25,25732589,1,159,25,25732522,1,235,25,25732579,1,152,25,25732575,1,192,25,25732489,1,179,25,25732573,1,201,25,25732472,1,172,25,25732576,1,149,25,25732488,1,178,25,25732566,1,120,25,25732571,1,219,25,25732577,1,150,25,25732487,1,127,25,25732506,1,211,25,25732548,1,125,25,25732588,1,158,25,25732486,1,247,25,25732467,1,238,25,25732508,1,163,25,25732552,1,228,25,25732603,1,183,25,25732513,1,217,25,25732587,1,168,25,25732520,1,122,25,25732484,1,128,25,25732562,1,249,25,25732505,1,187,25,25732504,1,186,25,25732483,1,136,25,25928905,1,181,25,25732560,1,255,25,25732500,1,230,25,25732482,1,135,25,25732555,1,233,25,25732568,1,222,25,25732583,1,145,25,25732481,1,134,25,25732586,1,167,25,25732521,1,248,25,25732518,1,209,25,25732480,1,243,25,25732512,1,216,25,25732509,1,164,25,25732547,1,140,25,25732479,1,157,25,25732544,1,239,25,25732574,1,191,25,25732564,1,251,25,25732478,1,156,25,25732546,1,139,25,25732498,1,242,25,25732557,1,133,25,25732477,1,162,25,25732515,1,213,25,25732584,1,165,25,25732514,1,212,25,25732476,1,227,25,25732494,1,198,25,25732531,1,236,25,25732530,1,234,25,25732529,1,117,25,25732528,1,215,25,25732527,1,124,25,25732526,1,123,25,25732525,1,254,25,25732524,1,253,25,25732523,1,148,25,25732570,1,218,25,25732580,1,146,25,25732581,1,147,25,25732569,1,224,25,25732533,1,143,25,25732540,1,184,25,25732541,1,185,25,25732585,1,166,25,25732556,1,132,25,25732485,1,129,25,25732563,1,250,25,25732578,1,151,25,25732501,1,119,25,25732502,1,193,25,25732536,1,176,25,25732496,1,245,25,25732553,1,229,25,25732516,1,206,25,25732582,1,144,25,25732517,1,208,25,25732558,1,137,25,25732543,1,241,25,25732466,1,237,25,25732507,1,190,25,25732542,1,240,25,25732551,1,131,25,25732554,1,232,25,25732565,1,252,25,25732475,1,171,25,25732493,1,205,25,25732492,1,204,25,25732491,1,118,25,25732490,1,214,25,25928904,1,180,25,25732549,1,126,25,25732602,1,182,25,25732539,1,175,25,25732545,1,141,25,25732559,1,138,25,25732537,1,177,25,25732534,1,153,25,25732503,1,194,25,25732606,1,160,25,25732567,1,121,25,25732538,1,174,25,25732497,1,246,25,25732550,1,130,25,25732572,1,200,25,25732474,1,170,25,25732511,1,221,25,25732601,1,196,25,25732532,1,142,25,25732519,1,210,25,25732495,1,199,25,25732605,1,155,25,25732535,1,154,25,25732499,1,244,25,25732510,1,220,25,25732600,1,195,25,25732607,1,161,25,25732604,1,231,25,25732473,1,173,25,25732599,1,226,26,51465122,1,116,26,51465123,0,1],x,u,H,d=[3,3,3,3,2,2,2,1,1,1],a=24576,a7=16384,K=8192,ai=a7|K;
+function A(B){var P=B[1],D=B[0][P>>>3]>>>7-(P&7)&1;B[1]++;return D}function aj(B,P){if(x==null){x={};
+for(var D=0;D<e.length;D+=4)x[e[D+1]]=e.slice(D,D+4)}var U=A(B),X=x[U];while(X==null){U=U<<1|A(B);X=x[U]}var y=X[3];
+if(y!=0)y=A(B)==0?y:-y;P[0]=X[2];P[1]=y}function Q(B,P){for(var D=0;D<P;D++){if((B&1)==1)B++;B=B>>>1}return B}function c(B,P){return B>>P}function N(B,P,D,U,X,y){P[D]=c(c(11*B[X]-4*B[X+y]+B[X+y+y]+4,3)+B[U],1);
+P[D+y]=c(c(5*B[X]+4*B[X+y]-B[X+y+y]+4,3)-B[U],1)}function g(B,P,D,U,X,y){var n=B[X-y]-B[X+y],S=B[X],O=B[U];
+P[D]=c(c(n+4,3)+S+O,1);P[D+y]=c(c(-n+4,3)+S-O,1)}function L(B,P,D,U,X,y){P[D]=c(c(5*B[X]+4*B[X-y]-B[X-y-y]+4,3)+B[U],1);
+P[D+y]=c(c(11*B[X]-4*B[X-y]+B[X-y-y]+4,3)-B[U],1)}function t(B){B=B<0?0:B>4095?4095:B;B=H[B]>>>2;return B}function ab(B,P,D,U,X){U=new Uint16Array(U.buffer);
+var y=Date.now(),n=UTIF._binBE,S=P+D,O,q,i,M,m,aA,T,a8,a0,am,au,a3,aw,ao,v,ax,p,k;P+=4;while(P<S){var W=n.readShort(B,P),E=n.readUshort(B,P+2);
+P+=4;if(W==12)O=E;else if(W==20)q=E;else if(W==21)i=E;else if(W==48)M=E;else if(W==53)m=E;else if(W==35)aA=E;
+else if(W==62)T=E;else if(W==101)a8=E;else if(W==109)a0=E;else if(W==84)am=E;else if(W==106)au=E;else if(W==107)a3=E;
+else if(W==108)aw=E;else if(W==102)ao=E;else if(W==104)v=E;else if(W==105)ax=E;else{var C=W<0?-W:W,F=C&65280,o=0;
+if(C&ai){if(C&K){o=E&65535;o+=(C&255)<<16}else{o=E&65535}}if((C&a)==a){if(p==null){p=[];for(var f=0;
+f<4;f++)p[f]=new Int16Array((q>>>1)*(i>>>1));k=new Int16Array((q>>>1)*(i>>>1));u=new Int16Array(1024);
+for(var f=0;f<1024;f++){var aF=f-512,j=Math.abs(aF),O=Math.floor(768*j*j*j/(255*255*255))+j;u[f]=Math.sign(aF)*O}H=new Uint16Array(4096);
+var al=(1<<16)-1;for(var f=0;f<4096;f++){var ad=f,az=al*(Math.pow(113,ad/4095)-1)/112;H[f]=Math.min(az,al)}}var Z=p[T],V=Q(q,1+d[M]),z=Q(i,1+d[M]);
+if(M==0){for(var b=0;b<z;b++)for(var G=0;G<V;G++){var w=P+(b*V+G)*2;Z[b*(q>>>1)+G]=B[w]<<8|B[w+1]}}else{var aC=[B,P*8],aq=[],a5=0,ae=V*z,I=[0,0],s=0,E=0;
+while(a5<ae){aj(aC,I);s=I[0];E=I[1];while(s>0){aq[a5++]=E;s--}}var $=(M-1)%3,aE=$!=1?V:0,as=$!=0?z:0;
+for(var b=0;b<z;b++){var ay=(b+as)*(q>>>1)+aE,aa=b*V;for(var G=0;G<V;G++)Z[ay+G]=u[aq[aa+G]+512]*m}if($==2){var v=q>>>1,an=V*2,at=z*2;
+for(var b=0;b<z;b++){for(var G=0;G<an;G++){var f=b*2*v+G,_=b*v+G,l=z*v+_;if(b==0)N(Z,k,f,l,_,v);else if(b==z-1)L(Z,k,f,l,_,v);
+else g(Z,k,f,l,_,v)}}var h=Z;Z=k;k=h;for(var b=0;b<at;b++){for(var G=0;G<V;G++){var f=b*v+2*G,_=b*v+G,l=V+_;
+if(G==0)N(Z,k,f,l,_,1);else if(G==V-1)L(Z,k,f,l,_,1);else g(Z,k,f,l,_,1)}}var h=Z;Z=k;k=h;var a6=[],aD=2-~~((M-1)/3);
+for(var r=0;r<3;r++)a6[r]=a0>>14-r*2&3;var af=a6[aD];if(af!=0)for(var b=0;b<at;b++)for(var G=0;G<an;
+G++){var f=b*v+G;Z[f]=Z[f]<<af}}}if(M==9&&T==3){var a2=p[0],ar=p[1],ah=p[2],a1=p[3];for(var b=0;b<i;
+b+=2)for(var G=0;G<q;G+=2){var J=b*q+G,w=(b>>>1)*(q>>>1)+(G>>>1),R=a2[w],ak=ar[w]-2048,aB=ah[w]-2048,av=a1[w]-2048,a4=(ak<<1)+R,a9=(aB<<1)+R,ap=R+av,ag=R-av;
+U[J]=t(a4);U[J+1]=t(ap);U[J+q]=t(ag);U[J+q+1]=t(a9)}}P+=o*4}else if(C==16388){P+=o*4}else if(F==8192||F==8448||F==9216){}else throw C.toString(16)}}console.log(Date.now()-y)}return ab}()
 
 UTIF.decode._ljpeg_diff = function(data, prm, huff) {
 	var getbithuff   = UTIF.decode._getbithuff;
@@ -405,6 +435,7 @@ UTIF.decode._make_decoder = function(source) {
 
 UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 {
+	len = Math.min(len, data.length-off);
 	var tables = img["t347"], tlen = tables ? tables.length : 0, buff = new Uint8Array(tlen + len);
 	
 	if (tables) {
@@ -427,10 +458,13 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 	}
 	else for (var i=0; i<len; i++) buff[i] = data[off+i];
 
-	if(img["t262"][0]==32803 || img["t262"][0]==34892) // lossless JPEG and lossy JPEG (used in DNG files)
+	if(img["t262"][0]==32803 || (img["t259"][0]==7 && img["t262"][0]==34892)) // lossless JPEG (used in DNG files)
 	{
 		var bps = img["t258"][0];//, dcdr = new LosslessJpegDecoder();
+		//var time = Date.now();
 		var out = UTIF.LosslessJpegDecode(buff), olen=out.length;  //console.log(olen);
+		//var out = ULLJPG(buff), olen=out.length;  //console.log(olen);
+		//console.log(Date.now()-time);
 		
 		if(false) {}
 		else if(bps==16) {
@@ -875,10 +909,10 @@ UTIF._readIFD = function(bin, data, offset, ifds, depth, prm)
 		if(type==11) {  for(var j=0; j<num; j++) arr.push(bin.readFloat (data, voff+j*4));  }
 		if(type==12) {  for(var j=0; j<num; j++) arr.push(bin.readDouble(data, voff+j*8));  }
 		
-		ifd["t"+tag] = arr;
-		
-		if(num!=0 && arr.length==0) {  log(tag, "unknown TIFF tag type: ", type, "num:",num);  if(i==0)return;  return;  }
+		if(num!=0 && arr.length==0) {  log(tag, "unknown TIFF tag type: ", type, "num:",num);  if(i==0)return;  continue;  }
 		if(prm.debug) log("   ".repeat(depth), tag, type, UTIF.tags[tag], arr);
+		
+		ifd["t"+tag] = arr;
 		
 		if(tag==330 && ifd["t272"] && ifd["t272"][0]=="DSLR-A100") {  } 
 		else if(tag==330 || tag==34665 || tag==34853 || (tag==50740 && bin.readUshort(data,bin.readUint(arr,0))<300  ) ||tag==61440) {
@@ -997,7 +1031,7 @@ UTIF.toRGBA8 = function(out, scl)
 		if(bps== 8) 
 		{
 			if(smpls==4) for(var i=0; i<qarea; i++) img[i] = data[i];
-			if(smpls==3) for(var i=0; i< area; i++) {  var qi=i<<2, ti=i*3;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }
+			if(smpls==3) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*3;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }
 		}
 		else{  // 3x 16-bit channel
 			if(smpls==4) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*8+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=data[ti+6];    }
@@ -1008,7 +1042,20 @@ UTIF.toRGBA8 = function(out, scl)
 	{
 		var map = out["t320"];
 		var smpls = out["t258"]?out["t258"].length : 1;
-		for(var i=0; i<area; i++) {  var qi=i<<2, mi=data[i*smpls];  img[qi]=(map[mi]>>8);  img[qi+1]=(map[256+mi]>>8);  img[qi+2]=(map[512+mi]>>8);  img[qi+3]=255;    }
+		var bpl = Math.ceil(smpls*bps*w/8);
+		var cn = 1<<bps;
+		
+		for(var y=0; y<h; y++) 
+			for(var x=0; x<w; x++) {  
+				var i = y*w+x;
+				var qi=i<<2, mi=0;
+				var dof = y*bpl;
+				if(false) {}
+				else if(bps==1) mi=(data[dof+(x>>>3)]>>>(7-(x&7)))&1;
+				else if(bps==8) mi= data[dof+x*smpls]; 
+				else throw bps;
+				img[qi]=(map[mi]>>8);  img[qi+1]=(map[cn+mi]>>8);  img[qi+2]=(map[cn+cn+mi]>>8);  img[qi+3]=255;   
+			}
 	}
 	else if(intp==5) 
 	{
@@ -1141,27 +1188,25 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 	}
 }
 
-UTIF.LosslessJpegDecode = (function(){function t(Z){this.w=Z;this.N=0;this._=0;this.G=0}t.prototype={t:function(Z){this.N=Math.max(0,Math.min(this.w.length,Z))},i:function(){return this.w[this.N++]},l:function(){var Z=this.N;
-this.N+=2;return this.w[Z]<<8|this.w[Z+1]},J:function(){if(this._==0){this.G=this.w[this.N];this.N+=1+(this.G+1>>>8);
-this._=8}return this.G>>>--this._&1},Z:function(Z){var X=this._,s=this.G,E=Math.min(X,Z);Z-=E;X-=E;var Y=s>>>X&(1<<E)-1;
-while(Z>0){s=this.w[this.N];this.N+=1+(s+1>>>8);E=Math.min(8,Z);Z-=E;X=8-E;Y<<=E;Y|=s>>>X&(1<<E)-1}this._=X;
-this.G=s;return Y}};var i={};i.X=function(){return[0,0,-1]};i.s=function(Z,X,s){Z[i.Y(Z,0,s)+2]=X};i.Y=function(Z,X,s){if(Z[X+2]!=-1)return 0;
-if(s==0)return X;for(var E=0;E<2;E++){if(Z[X+E]==0){Z[X+E]=Z.length;Z.push(0);Z.push(0);Z.push(-1)}var Y=i.Y(Z,Z[X+E],s-1);
-if(Y!=0)return Y}return 0};i.B=function(Z,X){var s=0,E=0,Y=0,B=X._,$=X.G,e=X.N;while(!0){if(B==0){$=X.w[e];
-e+=1+($+1>>>8);B=8}Y=$>>>--B&1;s=Z[s+Y];E=Z[s+2];if(E!=-1){X._=B;X.G=$;X.N=e;return E}}return-1};function l(Z){this.z=new t(Z);
-this.D(this.z)}l.prototype={$:function(Z,X){this.Q=Z.i();this.F=Z.l();this.o=Z.l();var s=this.O=Z.i();
-this.L=[];for(var E=0;E<s;E++){var Y=Z.i(),B=Z.i();Z.i();this.L[Y]=E}Z.t(Z.N+X-(6+s*3))},e:function(){var Z=0,X=this.z.i();
-if(this.H==null)this.H={};var s=this.H[X]=i.X(),E=[];for(var Y=0;Y<16;Y++){E[Y]=this.z.i();Z+=E[Y]}for(var Y=0;
-Y<16;Y++)for(var B=0;B<E[Y];B++)i.s(s,this.z.i(),Y+1);return Z+17},W:function(Z){while(Z>0)Z-=this.e()},p:function(Z,X){var s=Z.i();
-if(!this.U){this.U=[]}for(var E=0;E<s;E++){var Y=Z.i(),B=Z.i();this.U[this.L[Y]]=this.H[B>>>4]}this.g=Z.i();
-Z.t(Z.N+X-(2+s*2))},D:function(Z){var X=!1,s=Z.l();if(s!==l.q)return;do{var s=Z.l(),E=Z.l()-2;switch(s){case l.m:this.$(Z,E);
-break;case l.K:this.W(E);break;case l.V:this.p(Z,E);X=!0;break;default:Z.t(Z.N+E);break}}while(!X)},I:function(Z,X){var s=i.B(X,Z);
-if(s==16)return-32768;var E=Z.Z(s);if((E&1<<s-1)==0)E-=(1<<s)-1;return E},B:function(Z,X){var s=this.z,E=this.O,Y=this.F,B=this.I,$=this.g,e=this.o*E,W=this.U;
-for(var p=0;p<E;p++){Z[p]=B(s,W[p])+(1<<this.Q-1)}for(var D=E;D<e;D+=E){for(var p=0;p<E;p++)Z[D+p]=B(s,W[p])+Z[D+p-E]}var I=X;
-for(var m=1;m<Y;m++){for(var p=0;p<E;p++){Z[I+p]=B(s,W[p])+Z[I+p-X]}for(var D=E;D<e;D+=E){for(var p=0;
-p<E;p++){var K=I+D+p,q=Z[K-E];if($==6)q=Z[K-X]+(q-Z[K-E-X]>>>1);Z[K]=q+B(s,W[p])}}I+=X}}};l.m=65475;
-l.K=65476;l.q=65496;l.V=65498;function J(Z){var X=new l(Z),s=X.Q>8?Uint16Array:Uint8Array,E=new s(X.o*X.F*X.O),Y=X.o*X.O;
-X.B(E,Y);return E}return J}())
+UTIF.LosslessJpegDecode = function(){var r,C,A,l,p,v,t,h,J,s;function I(){return r[C++]}function o(){return r[C++]<<8|r[C++]}function f(){var H=I(),i=[0,0,0,255],g=[],j=8;
+for(var c=0;c<16;c++)g[c]=I();for(var c=0;c<16;c++){for(var E=0;E<g[c];E++){var b=e(i,0,c+1,1);i[b+3]=I()}}var u=new Uint8Array(1<<j);
+J[H]=[new Uint8Array(i),u];for(var c=0;c<1<<j;c++){var w=j,G=c,d=0,k=0;while(i[d+3]==255&&w!=0){k=G>>--w&1;
+d=i[d+k]}u[c]=d}}function e(H,i,g,c){if(H[i+3]!=255)return 0;if(g==0)return i;for(var E=0;E<2;E++){if(H[i+E]==0){H[i+E]=H.length;
+H.push(0,0,c,255)}var b=e(H,H[i+E],g-1,c+1);if(b!=0)return b}return 0}function y(H){var i=H.c,g=H.d;
+while(i<25){var c=H.data[H.a++];if(!H.b)H.a+=c+1>>>8;g=g<<8|c;i+=8}H.c=i;H.d=g}function F(H,i){if(i.c<H)y(i);
+return i.d>>(i.c-=H)&65535>>16-H}function n(H,i){var g=H[0],c=0,E=255,b=0;if(i.c<16)y(i);var j=i.d>>i.c-8&255;
+c=H[1][j];E=g[c+3];i.c-=g[c+2];while(E==255){b=i.d>>--i.c&1;c=g[c+b];E=g[c+3]}return E}function D(H,i){if(H<32768>>16-i)H+=-(1<<i)+1;
+return H}function q(H,i){var g=n(H,i);if(g==0)return 0;var c=F(g,i);return D(c,g)}function x(H,i,g){var c=v,E=l,b=t,j=s;
+for(var u=0;u<c;u++){H[u]=q(j[u],g)+(1<<A-1)}for(var w=c;w<i;w+=c){for(var u=0;u<c;u++)H[w+u]=q(j[u],g)+H[w+u-c]}var G=i;
+for(var d=1;d<E;d++){for(var u=0;u<c;u++){H[G+u]=q(j[u],g)+H[G+u-i]}for(var w=c;w<i;w+=c){for(var u=0;
+u<c;u++){var k=G+w+u,m=H[k-c];if(b==1){}else if(b==6)m=H[k-i]+(m-H[k-c-i]>>>1);else throw b;H[k]=m+q(j[u],g)}}G+=i}}function a(H,i){var g=F(H,i);
+return H==16?-32768:D(g,H)}function z(H,i,g){var c=r.length-C;for(var E=0;E<c;E+=4){var b=r[C+E];r[C+E]=r[C+E+3];
+r[C+E+3]=b;var b=r[C+E+1];r[C+E+1]=r[C+E+2];r[C+E+2]=b}var j=s[0];for(var u=0;u<l;u++){var w=32768,G=32768;
+for(var d=0;d<i;d+=2){var k=n(j,g),m=n(j,g);if(k!=0)w+=a(k,g);if(m!=0)G+=a(m,g);H[u*i+d]=w&65535;H[u*i+d+1]=G&65535}}}function B(H){r=H;
+C=0;J=[],s=[];if(o()!=65496)throw"e";while(!0){var i=o();if(i==65535){C--;continue}var g=o();if(i==65475){A=I();
+l=o();p=o();v=I();h=[];for(var c=0;c<v;c++){var E=I(),b=I();if(b!=17)throw"e";C++;h[E]=c}}else if(i==65476){var j=C+g-2;
+while(C<j)f()}else if(i==65498){C++;for(var c=0;c<v;c++){var u=I();s[h[u]]=J[I()>>>4]}t=I();C+=2;break}else{C+=g-2}}var w=A>8?Uint16Array:Uint8Array,G=p*v,d=new w(l*G),k={c:0,d:0,b:t==8,a:C,data:r};
+if(k.b)z(d,G,k);else x(d,G,k);return d}return B}()
 
 
 
