@@ -1189,26 +1189,26 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 	}
 }
 
-UTIF.LosslessJpegDecode = function(){var I,C,o,m,a,z,E,A,u,v;function i(){return I[C++]}function q(){return I[C++]<<8|I[C++]}function s(){var w=i(),r=[0,0,0,255],p=[],D=8;
-for(var k=0;k<16;k++)p[k]=i();for(var k=0;k<16;k++){for(var B=0;B<p[k];B++){var G=t(r,0,k+1,1);r[G+3]=i()}}var j=new Uint8Array(1<<D);
-u[w]=[new Uint8Array(r),j];for(var k=0;k<1<<D;k++){var g=D,n=k,F=0,x=0;while(r[F+3]==255&&g!=0){x=n>>--g&1;
-F=r[F+x]}j[k]=F}}function t(w,r,p,k){if(w[r+3]!=255)return 0;if(p==0)return r;for(var B=0;B<2;B++){if(w[r+B]==0){w[r+B]=w.length;
-w.push(0,0,k,255)}var G=t(w,w[r+B],p-1,k+1);if(G!=0)return G}return 0}function H(w){var r=w.a,p=w.d;
-while(r<25&&w.c<w.e){var k=w.data[w.c++];if(!w.b)w.c+=k+1>>>8;p=p<<8|k;r+=8}w.a=r;w.d=p}function b(w,r){if(r.a<w)H(r);
-return r.d>>(r.a-=w)&65535>>16-w}function c(w,r){var p=w[0],k=0,B=255,G=0;if(r.a<16)H(r);var D=r.d>>r.a-8&255;
-k=w[1][D];B=p[k+3];r.a-=p[k+2];while(B==255){G=r.d>>--r.a&1;k=p[k+G];B=p[k+3]}return B}function d(w,r){if(w<32768>>16-r)w+=-(1<<r)+1;
-return w}function h(w,r){var p=c(w,r);if(p==0)return 0;var k=b(p,r);return d(k,p)}function f(w,r,p){var k=z,B=m,G=E,D=v;
-for(var j=0;j<k;j++){w[j]=h(D[j],p)+(1<<o-1)}for(var g=k;g<r;g+=k){for(var j=0;j<k;j++)w[g+j]=h(D[j],p)+w[g+j-k]}var n=r;
-for(var F=1;F<B;F++){for(var j=0;j<k;j++){w[n+j]=h(D[j],p)+w[n+j-r]}for(var g=k;g<r;g+=k){for(var j=0;
-j<k;j++){var x=n+g+j,y=w[x-k];if(G==1){}else if(G==6)y=w[x-r]+(y-w[x-k-r]>>>1);else if(G==7)y=y+w[x-r]>>>1;
-else throw G;w[x]=y+h(D[j],p)}}n+=r}}function J(w,r){var p=b(w,r);return w==16?-32768:d(p,w)}function e(w,r,p){var k=I.length-C;
-for(var B=0;B<k;B+=4){var G=I[C+B];I[C+B]=I[C+B+3];I[C+B+3]=G;var G=I[C+B+1];I[C+B+1]=I[C+B+2];I[C+B+2]=G}var D=v[0];
-for(var j=0;j<m;j++){var g=32768,n=32768;for(var F=0;F<r;F+=2){var x=c(D,p),y=c(D,p);if(x!=0)g+=J(x,p);
-if(y!=0)n+=J(y,p);w[j*r+F]=g&65535;w[j*r+F+1]=n&65535}}}function l(w){I=w;C=0;u=[],v=[];if(q()!=65496)throw"e";
-while(!0){var r=q();if(r==65535){C--;continue}var p=q();if(r==65475){o=i();m=q();a=q();z=i();A=[];for(var k=0;
-k<z;k++){var B=i(),G=i();if(G!=17)throw"e";var D=i();if(D!=0)throw"e";A[B]=k}}else if(r==65476){var j=C+p-2;
-while(C<j)s()}else if(r==65498){C++;for(var k=0;k<z;k++){var g=i();v[A[g]]=u[i()>>>4]}E=i();C+=2;break}else{C+=p-2}}var n=o>8?Uint16Array:Uint8Array,F=a*z,x=new n(m*F),y={a:0,d:0,b:E==8,c:C,data:I,e:I.length};
-if(y.b)e(x,F,y);else f(x,F,y);return x}return l}()
+UTIF.LosslessJpegDecode = function(){var j,u,p,a,B,H,f,l,y,r;function I(){return j[u++]}function h(){return j[u++]<<8|j[u++]}function k(){var w=I(),J=[0,0,0,255],e=[],m=8;
+for(var C=0;C<16;C++)e[C]=I();for(var C=0;C<16;C++){for(var i=0;i<e[C];i++){var v=A(J,0,C+1,1);J[v+3]=I()}}var q=new Uint8Array(1<<m);
+y[w]=[new Uint8Array(J),q];for(var C=0;C<1<<m;C++){var n=m,x=C,F=0,t=0;while(J[F+3]==255&&n!=0){t=x>>--n&1;
+F=J[F+t]}q[C]=F}}function A(w,J,e,C){if(w[J+3]!=255)return 0;if(e==0)return J;for(var i=0;i<2;i++){if(w[J+i]==0){w[J+i]=w.length;
+w.push(0,0,C,255)}var v=A(w,w[J+i],e-1,C+1);if(v!=0)return v}return 0}function d(w){var J=w.d,e=w.e;
+while(J<25&&w.c<w.a){var C=w.data[w.c++];if(!w.b)w.c+=C+1>>>8;e=e<<8|C;J+=8}w.d=J;w.e=e}function g(w,J){if(J.d<w)d(J);
+return J.e>>(J.d-=w)&65535>>16-w}function E(w,J){var e=w[0],C=0,i=255,v=0;if(J.d<16)d(J);var m=J.e>>J.d-8&255;
+C=w[1][m];i=e[C+3];J.d-=e[C+2];while(i==255){v=J.e>>--J.d&1;C=e[C+v];i=e[C+3]}return i}function o(w,J){if(w<32768>>16-J)w+=-(1<<J)+1;
+return w}function s(w,J){var e=E(w,J);if(e==0)return 0;if(e==16)return-32768;var C=g(e,J);return o(C,e)}function D(w,J,e){var C=H,i=a,v=f,m=r;
+for(var q=0;q<C;q++){w[q]=s(m[q],e)+(1<<p-1)}for(var n=C;n<J;n+=C){for(var q=0;q<C;q++)w[n+q]=s(m[q],e)+w[n+q-C]}var x=J;
+for(var F=1;F<i;F++){for(var q=0;q<C;q++){w[x+q]=s(m[q],e)+w[x+q-J]}for(var n=C;n<J;n+=C){for(var q=0;
+q<C;q++){var t=x+n+q,b=w[t-C];if(v==1){}else if(v==6)b=w[t-J]+(b-w[t-C-J]>>>1);else if(v==7)b=b+w[t-J]>>>1;
+else throw v;w[t]=b+s(m[q],e)}}x+=J}}function G(w,J){var e=g(w,J);return w==16?-32768:o(e,w)}function c(w,J,e){var C=j.length-u;
+for(var i=0;i<C;i+=4){var v=j[u+i];j[u+i]=j[u+i+3];j[u+i+3]=v;var v=j[u+i+1];j[u+i+1]=j[u+i+2];j[u+i+2]=v}var m=r[0];
+for(var q=0;q<a;q++){var n=32768,x=32768;for(var F=0;F<J;F+=2){var t=E(m,e),b=E(m,e);if(t!=0)n+=G(t,e);
+if(b!=0)x+=G(b,e);w[q*J+F]=n&65535;w[q*J+F+1]=x&65535}}}function z(w){j=w;u=0;y=[],r=[];if(h()!=65496)throw"e";
+while(!0){var J=h();if(J==65535){u--;continue}var e=h();if(J==65475){p=I();a=h();B=h();H=I();l=[];for(var C=0;
+C<H;C++){var i=I(),v=I();if(v!=17)throw"e";var m=I();if(m!=0)throw"e";l[i]=C}}else if(J==65476){var q=u+e-2;
+while(u<q)k()}else if(J==65498){u++;for(var C=0;C<H;C++){var n=I();r[l[n]]=y[I()>>>4]}f=I();u+=2;break}else{u+=e-2}}var x=p>8?Uint16Array:Uint8Array,F=B*H,t=new x(a*F),b={d:0,e:0,b:f==8,c:u,data:j,a:j.length};
+if(b.b)c(t,F,b);else D(t,F,b);return t}return z}()
 
 
 
