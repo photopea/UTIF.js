@@ -1189,26 +1189,56 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 	}
 }
 
-UTIF.LosslessJpegDecode = function(){var j,u,p,a,B,H,f,l,y,r;function I(){return j[u++]}function h(){return j[u++]<<8|j[u++]}function k(){var w=I(),J=[0,0,0,255],e=[],m=8;
-for(var C=0;C<16;C++)e[C]=I();for(var C=0;C<16;C++){for(var i=0;i<e[C];i++){var v=A(J,0,C+1,1);J[v+3]=I()}}var q=new Uint8Array(1<<m);
-y[w]=[new Uint8Array(J),q];for(var C=0;C<1<<m;C++){var n=m,x=C,F=0,t=0;while(J[F+3]==255&&n!=0){t=x>>--n&1;
-F=J[F+t]}q[C]=F}}function A(w,J,e,C){if(w[J+3]!=255)return 0;if(e==0)return J;for(var i=0;i<2;i++){if(w[J+i]==0){w[J+i]=w.length;
-w.push(0,0,C,255)}var v=A(w,w[J+i],e-1,C+1);if(v!=0)return v}return 0}function d(w){var J=w.d,e=w.e;
-while(J<25&&w.c<w.a){var C=w.data[w.c++];if(!w.b)w.c+=C+1>>>8;e=e<<8|C;J+=8}w.d=J;w.e=e}function g(w,J){if(J.d<w)d(J);
-return J.e>>(J.d-=w)&65535>>16-w}function E(w,J){var e=w[0],C=0,i=255,v=0;if(J.d<16)d(J);var m=J.e>>J.d-8&255;
-C=w[1][m];i=e[C+3];J.d-=e[C+2];while(i==255){v=J.e>>--J.d&1;C=e[C+v];i=e[C+3]}return i}function o(w,J){if(w<32768>>16-J)w+=-(1<<J)+1;
-return w}function s(w,J){var e=E(w,J);if(e==0)return 0;if(e==16)return-32768;var C=g(e,J);return o(C,e)}function D(w,J,e){var C=H,i=a,v=f,m=r;
-for(var q=0;q<C;q++){w[q]=s(m[q],e)+(1<<p-1)}for(var n=C;n<J;n+=C){for(var q=0;q<C;q++)w[n+q]=s(m[q],e)+w[n+q-C]}var x=J;
-for(var F=1;F<i;F++){for(var q=0;q<C;q++){w[x+q]=s(m[q],e)+w[x+q-J]}for(var n=C;n<J;n+=C){for(var q=0;
-q<C;q++){var t=x+n+q,b=w[t-C];if(v==1){}else if(v==6)b=w[t-J]+(b-w[t-C-J]>>>1);else if(v==7)b=b+w[t-J]>>>1;
-else throw v;w[t]=b+s(m[q],e)}}x+=J}}function G(w,J){var e=g(w,J);return w==16?-32768:o(e,w)}function c(w,J,e){var C=j.length-u;
-for(var i=0;i<C;i+=4){var v=j[u+i];j[u+i]=j[u+i+3];j[u+i+3]=v;var v=j[u+i+1];j[u+i+1]=j[u+i+2];j[u+i+2]=v}var m=r[0];
-for(var q=0;q<a;q++){var n=32768,x=32768;for(var F=0;F<J;F+=2){var t=E(m,e),b=E(m,e);if(t!=0)n+=G(t,e);
-if(b!=0)x+=G(b,e);w[q*J+F]=n&65535;w[q*J+F+1]=x&65535}}}function z(w){j=w;u=0;y=[],r=[];if(h()!=65496)throw"e";
-while(!0){var J=h();if(J==65535){u--;continue}var e=h();if(J==65475){p=I();a=h();B=h();H=I();l=[];for(var C=0;
-C<H;C++){var i=I(),v=I();if(v!=17)throw"e";var m=I();if(m!=0)throw"e";l[i]=C}}else if(J==65476){var q=u+e-2;
-while(u<q)k()}else if(J==65498){u++;for(var C=0;C<H;C++){var n=I();r[l[n]]=y[I()>>>4]}f=I();u+=2;break}else{u+=e-2}}var x=p>8?Uint16Array:Uint8Array,F=B*H,t=new x(a*F),b={d:0,e:0,b:f==8,c:u,data:j,a:j.length};
-if(b.b)c(t,F,b);else D(t,F,b);return t}return z}()
+UTIF.LosslessJpegDecode = function(){var q,u,D,m,i,s,r,a,z,f;function d(){return q[u++]}function H(){return q[u++]<<8|q[u++]}function g(){var B=d(),b=[0,0,0,255],c=[],h=8;
+for(var w=0;w<16;w++)c[w]=d();for(var w=0;w<16;w++){for(var t=0;t<c[w];t++){var o=y(b,0,w+1,1);b[o+3]=d()}}var G=new Uint8Array(1<<h);
+z[B]=[new Uint8Array(b),G];for(var w=0;w<1<<h;w++){var p=h,E=w,C=0,x=0;while(b[C+3]==255&&p!=0){x=E>>--p&1;
+C=b[C+x]}G[w]=C}}function y(B,b,c,w){if(B[b+3]!=255)return 0;if(c==0)return b;for(var t=0;t<2;t++){if(B[b+t]==0){B[b+t]=B.length;
+B.push(0,0,w,255)}var o=y(B,B[b+t],c-1,w+1);if(o!=0)return o}return 0}function I(B){var b=B.d,c=B.e;
+while(b<25&&B.c<B.b){var w=B.data[B.c++];if(!B.a)B.c+=w+1>>>8;c=c<<8|w;b+=8}B.d=b;B.e=c}function J(B,b){if(b.d<B)I(b);
+return b.e>>(b.d-=B)&65535>>16-B}function k(B,b){var c=B[0],w=0,t=255,o=0;if(b.d<16)I(b);var h=b.e>>b.d-8&255;
+w=B[1][h];t=c[w+3];b.d-=c[w+2];while(t==255){o=b.e>>--b.d&1;w=c[w+o];t=c[w+3]}return t}function j(B,b){if(B<32768>>16-b)B+=-(1<<b)+1;
+return B}function v(B,b){var c=k(B,b);if(c==0)return 0;if(c==16)return-32768;var w=J(c,b);return j(w,c)}function l(B,b,c){var w=s,t=m,o=r,h=f;
+for(var G=0;G<w;G++){B[G]=v(h[G],c)+(1<<D-1)}for(var p=w;p<b;p+=w){for(var G=0;G<w;G++)B[p+G]=v(h[G],c)+B[p+G-w]}var E=b;
+for(var C=1;C<t;C++){for(var G=0;G<w;G++){B[E+G]=v(h[G],c)+B[E+G-b]}for(var p=w;p<b;p+=w){for(var G=0;
+G<w;G++){var x=E+p+G,F=B[x-w];if(o==1){}else if(o==6)F=B[x-b]+(F-B[x-w-b]>>>1);else if(o==7)F=F+B[x-b]>>>1;
+else throw o;B[x]=F+v(h[G],c)}}E+=b}}function e(B,b){return j(J(B,b),B)}function n(B,b,c){var w=q.length-u;
+for(var t=0;t<w;t+=4){var o=q[u+t];q[u+t]=q[u+t+3];q[u+t+3]=o;var o=q[u+t+1];q[u+t+1]=q[u+t+2];q[u+t+2]=o}var h=f[0];
+for(var G=0;G<m;G++){var p=32768,E=32768;for(var C=0;C<b;C+=2){var x=k(h,c),F=k(h,c);if(x!=0)p+=e(x,c);
+if(F!=0)E+=e(F,c);B[G*b+C]=p&65535;B[G*b+C+1]=E&65535}}}function A(B){q=B;u=0;z=[],f=[];if(H()!=65496)throw"e";
+while(!0){var b=H();if(b==65535){u--;continue}var c=H();if(b==65475){D=d();m=H();i=H();s=d();a=[];for(var w=0;
+w<s;w++){var t=d(),o=d();if(o!=17)throw"e";var h=d();if(h!=0)throw"e";a[t]=w}}else if(b==65476){var G=u+c-2;
+while(u<G)g()}else if(b==65498){u++;for(var w=0;w<s;w++){var p=d();f[a[p]]=z[d()>>>4]}r=d();u+=2;break}else{u+=c-2}}var E=D>8?Uint16Array:Uint8Array,C=i*s,x=new E(m*C),F={d:0,e:0,a:r==8,c:u,data:q,b:q.length};
+if(F.a)n(x,C,F);else l(x,C,F);return x}return A}();
+
+
+(function(){var O=0,d=1,n=2,F=3,w=4,j=5,C=6,l=7,k=8,P=9,a9=10,g=11,U=12,t=13,L=14,Y=15,Q=16,M=17,u=18;
+function a4($){var z=UTIF._binBE.readUshort,v={m:z($,0),f:$[2],r:$[3],a:$[4],d:z($,5),t:z($,7),h:z($,9),n:z($,11),v:$[13],p:z($,14)};
+if(v.m!=18771||v.f>1||v.d<6||v.d%6||v.h<768||v.h%24||v.n!=768||v.t<v.n||v.t%v.n||v.t-v.h>=v.n||v.v>16||v.v!=v.t/v.n||v.v!=Math.ceil(v.h/v.n)||v.p!=v.d/6||v.a!=12&&v.a!=14&&v.a!=16||v.r!=16&&v.r!=0){throw"Invalid data"}if(v.f==0){throw"Not implemented. We need this file!"}v.o=v.r==16;
+v.c=(v.o?v.n*2/3:v.n>>>1)|0;v.g=v.c+2;v.q=64;v.j=(1<<v.a)-1;v.w=4*v.a;return v}function a6($,z){var v=new Array(z.v),i=16+4*z.v;
+for(var y=0,A=16;y<z.v;A+=4){var B=UTIF._binBE.readUint($,A);v[y]=$.slice(i,i+B);v[y].l=0;v[y].s=0;i+=B;
+y++}if(i!=$.length)throw"Invalid data";return v}function a7($,z){for(var v=-z[4],i=0;v<=z[4];i++,v++){$[i]=v<=-z[3]?-4:v<=-z[2]?-3:v<=-z[1]?-2:v<-z[0]?-1:v<=z[0]?0:v<z[1]?1:v<z[2]?2:v<z[3]?3:4}}function a3($,z,v){var i=[z,3*z+18,5*z+67,7*z+276,v];
+$.k=z;$.i=(i[4]+2*z)/(2*z+1)+1|0;$.b=Math.ceil(Math.log2($.i));$.e=9;a7($.u,i)}function a1($){var z={u:new Int8Array(2<<$.a)};
+a3(z,0,$.j);return z}function N($){var z=[[],[],[]],v=Math.max(2,$.i+32>>>6);for(var i=0;i<3;i++){for(var y=0;
+y<41;y++){z[i][y]=[v,1]}}return z}function a8($){for(var z=-1,v=0;!v;z++){v=$[$.l]>>>7-$.s&1;$.s++;$.s&=7;
+if(!$.s)$.l++}return z}function R($,z){var v=0,i=8-$.s,y=$.l,A=$.s;if(z){if(z>=i){do{v<<=i;z-=i;v|=$[$.l]&(1<<i)-1;
+$.l++;i=8}while(z>=8)}if(z){v<<=z;i-=z;v|=$[$.l]>>>i&(1<<z)-1}$.s=8-i}return v}function a2($,z){var v=0;
+if(z<$){while(v<=14&&z<<++v<$);}return v}function V($,z,v,i,y,A,B,r){if(r==null)r=0;var W=A+1,o=W%2,J=0,K=0,f=0,E,p,h=i[y],e=i[y-1],T=i[y-2][W],I=e[W-1],x=e[W],G=e[W+1],c=h[W-1],D=h[W+1],Z=Math.abs,H,s,X,q;
+if(o){H=Z(G-x);s=Z(T-x);X=Z(I-x)}if(o){q=H>X&&s<H?T+I:H<X&&s<X?T+G:G+I;q=q+2*x>>>2;if(r){h[W]=q;return}E=z.e*z.u[$.j+x-T]+z.u[$.j+I-x]}else{q=x>I&&x>G||x<I&&x<G?D+c+2*x>>>2:c+D>>>1;
+E=z.e*z.u[$.j+x-I]+z.u[$.j+I-c]}p=Z(E);var _=a8(v);if(_<$.w-z.b-1){var a=a2(B[p][0],B[p][1]);f=R(v,a)+(_<<a)}else{f=R(v,z.b)+1}f=f&1?-1-(f>>>1):f>>>1;
+B[p][0]+=Z(f);if(B[p][1]==$.q){B[p][0]>>>=1;B[p][1]>>>=1}B[p][1]++;q=E<0?q-f:q+f;if($.f){if(q<0)q+=z.i;
+else if(q>$.j)q-=z.i}h[W]=q>=0?Math.min(q,$.j):0}function S($,z,v){var i=$[0].length;for(var y=z;y<=v;
+y++){$[y][0]=$[y-1][1];$[y][i-1]=$[y-1][i-2]}}function b($){S($,l,U);S($,n,w);S($,Y,M)}function m($,z,v,i,y,A,B,r,W,o,J,K,f){var E=0,p=1,h=y<t&&y>w;
+while(p<$.c){if(E<$.c){V($,z,v,i,y,E,B[W],$.o&&(h&&o||!h&&(J||(E&K)==f)));V($,z,v,i,A,E,B[W],$.o&&(!h&&o||h&&(J||(E&K)==f)));
+E+=2}if(E>8){V($,z,v,i,y,p,r[W]);V($,z,v,i,A,p,r[W]);p+=2}}b(i)}function a0($,z,v,i,y,A){m($,z,v,i,n,l,y,A,0,0,1,0,8);
+m($,z,v,i,k,Y,y,A,1,0,1,0,8);m($,z,v,i,F,P,y,A,2,1,0,3,0);m($,z,v,i,a9,Q,y,A,0,0,0,3,2);m($,z,v,i,w,g,y,A,1,0,0,3,2);
+m($,z,v,i,U,M,y,A,2,1,0,3,0)}function a5($,z,v,i,y,A){var B=A.length,r=$.n;if(y+1==$.v)r=$.h-y*$.n;var W=6*$.h*i+y*$.n;
+for(var o=0;o<6;o++){for(var J=0;J<r;J++){var K=A[o%B][J%B],f;if(K==0){f=n+(o>>>1)}else if(K==2){f=Y+(o>>>1)}else{f=l+o}var E=$.o?(J*2/3&2147483646|J%3&1)+(J%3>>>1):J>>>1;
+z[W+J]=v[f][E+1]}W+=$.h}}UTIF._decompressRAF=function($,z){var v=a4($),i=a6($,v),y=a1(v),A=new Int16Array(v.h*v.d);
+if(z==null){z=v.o?[[1,1,0,1,1,2],[1,1,2,1,1,0],[2,0,1,0,2,1],[1,1,2,1,1,0],[1,1,0,1,1,2],[0,2,1,2,0,1]]:[[0,1],[3,2]]}var B=[[O,F],[d,w],[j,g],[C,U],[t,Q],[L,M]],r=[];
+for(var W=0;W<u;W++){r[W]=new Uint16Array(v.g)}for(var o=0;o<v.v;o++){var J=N(y),K=N(y);for(var W=0;
+W<u;W++){for(var f=0;f<v.g;f++){r[W][f]=0}}for(var E=0;E<v.p;E++){a0(v,y,i[o],r,J,K);for(var W=0;W<6;
+W++){for(var f=0;f<v.g;f++){r[B[W][0]][f]=r[B[W][1]][f]}}a5(v,A,r,E,o,z);for(var W=n;W<u;W++){if([j,C,t,L].indexOf(W)==-1){for(var f=0;
+f<v.g;f++){r[W][f]=0}}}b(r)}}return A}}())
 
 
 
