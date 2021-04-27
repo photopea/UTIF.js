@@ -1052,6 +1052,7 @@ UTIF.toRGBA8 = function(out, scl)
 				var dof = y*bpl;
 				if(false) {}
 				else if(bps==1) mi=(data[dof+(x>>>3)]>>>(7-(x&7)))&1;
+				else if(bps==2) mi=(data[dof+(x>>>2)]>>>(6-2*(x&3)))&3;
 				else if(bps==4) mi=(data[dof+(x>>>1)]>>>(4-4*(x&1)))&15;
 				else if(bps==8) mi= data[dof+x*smpls]; 
 				else throw bps;
