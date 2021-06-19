@@ -1108,9 +1108,14 @@ UTIF.replaceIMG = function(imgs)
 }
 
 UTIF._xhrs = [];  UTIF._imgs = [];
-UTIF._imgLoaded = function(e)
-{
-	var buff = e.target.response;
+UTIF._imgLoaded = function(e) {
+	var ind = UTIF._xhrs.indexOf(e.target), img = UTIF._imgs[ind];
+	UTIF._xhrs.splice(ind,1);  UTIF._imgs.splice(ind,1);
+	
+	img.setAttribute("src",UTIF.bufferToURI(e.target.response));
+}
+
+UTIF.bufferToURI = function(buff) {
 	var ifds = UTIF.decode(buff);  //console.log(ifds);
 	var vsns = ifds, ma=0, page=vsns[0];  if(ifds[0].subIFD) vsns = vsns.concat(ifds[0].subIFD);
 	for(var i=0; i<vsns.length; i++) {
@@ -1121,15 +1126,12 @@ UTIF._imgLoaded = function(e)
 	}
 	UTIF.decodeImage(buff, page, ifds);
 	var rgba = UTIF.toRGBA8(page), w=page.width, h=page.height;
-	var ind = UTIF._xhrs.indexOf(e.target), img = UTIF._imgs[ind];
-	UTIF._xhrs.splice(ind,1);  UTIF._imgs.splice(ind,1);
+	
 	var cnv = document.createElement("canvas");  cnv.width=w;  cnv.height=h;
 	var ctx = cnv.getContext("2d");
 	var imgd = new ImageData(new Uint8ClampedArray(rgba.buffer),w,h);
-	/*imgd = ctx.createImageData(w,h);
-	for(var i=0; i<rgba.length; i++) imgd.data[i]=rgba[i];   */    
 	ctx.putImageData(imgd,0,0);
-	img.setAttribute("src",cnv.toDataURL());
+	return cnv.toDataURL();
 }
 
 
