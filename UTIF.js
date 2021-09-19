@@ -107,9 +107,10 @@ UTIF.decodeImage = function(buff, img, ifds)
 	img.width  = img["t256"][0];  //delete img["t256"];
 	img.height = img["t257"][0];  //delete img["t257"];
 
-	var cmpr   = img["t259"] ? img["t259"][0] : 1;  //delete img["t259"];
-	var fo = img["t266"] ? img["t266"][0] : 1;  //delete img["t266"];
+	var cmpr = img["t259"] ? img["t259"][0] : 1;  //delete img["t259"];
+	var fo   = img["t266"] ? img["t266"][0] : 1;  //delete img["t266"];
 	if(img["t284"] && img["t284"][0]==2) log("PlanarConfiguration 2 should not be used!");
+	if(cmpr==7 && img["t258"] && img["t258"].length>3)  img["t258"]=img["t258"].slice(0,3);
 
 	var bipp;  // bits per pixel
 	if(img["t258"]) bipp = Math.min(32,img["t258"][0])*img["t258"].length;
