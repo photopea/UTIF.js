@@ -9,11 +9,7 @@ For RAW files, UTIF.js only decodes raw sensor data (and JPG previews, if there 
 
 ## Installation
 
-Download and include the `UTIF.js` file in your code. If you're in NodeJS or otherwise using NPM, run:
-
-```sh
-npm install utif
-```
+Download and include the `UTIF.js` file in your code. 
 
 #### `UTIF.decode(buffer)`
 * `buffer`: ArrayBuffer containing TIFF or EXIF data
