@@ -131,6 +131,7 @@ UTIF.decodeImage = function(buff, img, ifds)
 		var tx = Math.floor((img.width  + tw - 1) / tw);
 		var ty = Math.floor((img.height + th - 1) / th);
 		var tbuff = new Uint8Array(Math.ceil(tw*th*bipp/8)|0);
+		console.log("====", tx,ty);
 		for(var y=0; y<ty; y++)
 			for(var x=0; x<tx; x++)
 			{
@@ -145,6 +146,7 @@ UTIF.decodeImage = function(buff, img, ifds)
 	else	// stripped
 	{
 		var rps = img["t278"] ? img["t278"][0] : img.height;   rps = Math.min(rps, img.height);
+		console.log("====", img.width, rps);
 		for(var i=0; i<soff.length; i++)
 		{
 			UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, bytes, Math.ceil(bilen/8)|0, fo);
@@ -173,6 +175,7 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 	else if(cmpr==32809) UTIF.decode._decodeThunder (data, off, len, tgt, toff);
 	else if(cmpr==34713) //for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
 		UTIF.decode._decodeNikon   (img,ifds, data, off, len, tgt, toff);
+	else if(cmpr==34676) UTIF.decode._decodeLogLuv32(img,data, off, len, tgt, toff);  
 	else log("Unknown compression", cmpr);
 	
 	//console.log(Date.now()-time);
@@ -233,6 +236,28 @@ for(var r=0;r<3;r++)a6[r]=a0>>14-r*2&3;var af=a6[aD];if(af!=0)for(var b=0;b<at;b
 G++){var f=b*v+G;Z[f]=Z[f]<<af}}}if(M==9&&T==3){var a2=p[0],ar=p[1],ah=p[2],a1=p[3];for(var b=0;b<i;
 b+=2)for(var G=0;G<q;G+=2){var J=b*q+G,w=(b>>>1)*(q>>>1)+(G>>>1),R=a2[w],ak=ar[w]-2048,aB=ah[w]-2048,av=a1[w]-2048,a4=(ak<<1)+R,a9=(aB<<1)+R,ap=R+av,ag=R-av;
 U[J]=t(a4);U[J+1]=t(ap);U[J+q]=t(ag);U[J+q+1]=t(a9)}}P+=o*4}else if(C==16388){P+=o*4}else if(F==8192||F==8448||F==9216){}else throw C.toString(16)}}console.log(Date.now()-y)}return ab}()
+
+UTIF.decode._decodeLogLuv32 = function(img, data, off, len, tgt, toff) {
+	var w = img.width, qw=w*4;
+	var io = 0, out = new Uint8Array(qw);
+	
+	while(io<len) {
+		var oo=0;
+		while(oo<qw) {
+			var c = data[off+io]; io++;
+			if(c<128) {       for(var j=0; j<c; j++) out[oo+j] = data[off+io+j];  oo+=c;  io+=c;  }
+			else {  c=c-126;  for(var j=0; j<c; j++) out[oo+j] = data[off+io  ];  oo+=c;  io++ ;  }
+		}
+		
+		for(var x=0; x<w; x++) {
+			tgt[toff+0] = out[x];
+			tgt[toff+1] = out[x+w];
+			tgt[toff+2] = out[x+w*2];
+			tgt[toff+4] = out[x+w*3];
+			toff+=6;
+		}
+	}
+}
 
 UTIF.decode._ljpeg_diff = function(data, prm, huff) {
 	var getbithuff   = UTIF.decode._getbithuff;
@@ -694,6 +719,7 @@ UTIF.decode._decodePackBits = function(data, off, len, tgt, toff)
 		if(n>=0  && n<128)    for(var i=0; i< n+1; i++) {  ta[toff]=sa[off];  toff++;  off++;   }
 		if(n>=-127 && n<0) {  for(var i=0; i<-n+1; i++) {  ta[toff]=sa[off];  toff++;           }  off++;  }
 	}
+	return toff;
 }
 
 UTIF.decode._decodeThunder = function(data, off, len, tgt, toff)
@@ -1000,6 +1026,7 @@ UTIF.toRGBA8 = function(out, scl)
 	var intp = (out["t262"] ? out["t262"][0]: 2), bps = (out["t258"]?Math.min(32,out["t258"][0]):1);
 	if(out["t262"]==null && bps==1) intp=0;
 	//log("interpretation: ", intp, "bps", bps, out);
+	
 	if(false) {}
 	else if(intp==0)
 	{
@@ -1065,8 +1092,19 @@ UTIF.toRGBA8 = function(out, scl)
 		var smpls = out["t258"]?out["t258"].length : 4;
 		var gotAlpha = smpls>4 ? 1 : 0;
 		for(var i=0; i<area; i++) {
-			var qi=i<<2, si=i*smpls;  var C=255-data[si], M=255-data[si+1], Y=255-data[si+2], K=(255-data[si+3])*(1/255);
-			img[qi]=~~(C*K+0.5);  img[qi+1]=~~(M*K+0.5);  img[qi+2]=~~(Y*K+0.5);  img[qi+3]=255*(1-gotAlpha)+data[si+4]*gotAlpha;
+			var qi=i<<2, si=i*smpls;  
+			
+			if(UDOC) {
+				var C=data[si], M=data[si+1], Y=data[si+2], K=data[si+3];
+				var c = UDOC.C.cmykToRgb([C*(1/255), M*(1/255), Y*(1/255), K*(1/255)]);
+				img[qi] = ~~(0.5+255*c[0]);  img[qi+1] = ~~(0.5+255*c[1]);  img[qi+2] = ~~(0.5+255*c[2]);
+			}
+			else {
+				var C=255-data[si], M=255-data[si+1], Y=255-data[si+2], K=(255-data[si+3])*(1/255);
+				img[qi]=~~(C*K+0.5);  img[qi+1]=~~(M*K+0.5);  img[qi+2]=~~(Y*K+0.5);
+			}
+			
+			img[qi+3]=255*(1-gotAlpha)+data[si+4]*gotAlpha;
 		}
 	}
 	else if(intp==6 && out["t278"]) {  // only for DSC_1538.TIF
@@ -1088,6 +1126,37 @@ UTIF.toRGBA8 = function(out, scl)
 				img[qi+3]=255;
 			}
 		}
+	}
+	else if(intp==32845) {
+		
+		function gamma(x) {  return x < 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1.0 / 2.4) - 0.055;  }
+		
+		for(var y=0; y<h; y++)
+			for(var x=0; x<w; x++) {
+				var si = (y*w+x)*6, qi=(y*w+x)*4;
+				var L =  (data[si+1]<<8) | data[si];
+				
+				var L = Math.pow(2, (L + 0.5) / 256 - 64);
+				var u = (data[si+3] + 0.5) / 410;
+				var v = (data[si+5] + 0.5) / 410;
+				
+				// Luv to xyY
+				var sX = (9 * u) / (6 * u - 16 * v + 12);
+				var sY = (4 * v) / (6 * u - 16 * v + 12);
+				var bY = L;  
+				
+				// xyY to XYZ
+				var X = (sX*bY)/sY, Y = bY, Z = (1-sX-sY)*bY/sY;  
+				
+				var r =  2.3706743*X -0.9000405*Y -0.4706338*Z
+				var g = -0.5138850*X +1.4253036*Y +0.0885814*Z
+				var b =  0.0052982*X -0.0146949*Y +1.0093968*Z
+				
+				img[qi  ] = gamma(Math.min(r,1))*255;
+				img[qi+1] = gamma(Math.min(g,1))*255;
+				img[qi+2] = gamma(Math.min(b,1))*255;
+				img[qi+3] = 255;
+			}
 	}
 	else log("Unknown Photometric interpretation: "+intp);
 	return img;
