@@ -121,8 +121,8 @@ UTIF.decodeImage = function(buff, img, ifds)
 	}
 	if(img["t50885"] && img["t50885"][0]==4) bipp = img["t258"][0]*3;  // RAW_CANON_40D_SRAW_V103.CR2
 	var bipl = Math.ceil(img.width*bipp/8)*8;
-	var soff = img["t273"];  if(soff==null) soff = img["t324"];
-	var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [img.height*(bipl>>>3)];  if(bcnt==null) bcnt = img["t325"];
+	var soff = img["t273"];  if(soff==null || img["t322"]) soff = img["t324"];
+	var bcnt = img["t279"];  if(cmpr==1 && soff.length==1) bcnt = [img.height*(bipl>>>3)];  if(bcnt==null || img["t322"]) bcnt = img["t325"];
 	//bcnt[0] = Math.min(bcnt[0], data.length);  // Hasselblad, "RAW_HASSELBLAD_H3D39II.3FR"
 	var bytes = new Uint8Array(img.height*(bipl>>>3)), bilen = 0;
 
@@ -136,7 +136,7 @@ UTIF.decodeImage = function(buff, img, ifds)
 		for(var y=0; y<ty; y++)
 			for(var x=0; x<tx; x++)
 			{
-				var i = y*tx+x;  for(var j=0; j<tbuff.length; j++) tbuff[j]=0;
+				var i = y*tx+x;  tbuff.fill(0);
 				UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, tbuff, 0, fo);
 				// Might be required for 7 too. Need to check
 				if (cmpr==6) bytes = tbuff;
@@ -164,6 +164,7 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 	//var time = Date.now();
 	if(false) {}
 	else if(cmpr==1/* || (len==tgt.length && cmpr!=32767)*/) for(var j=0; j<len; j++) tgt[toff+j] = data[off+j];
+	else if(cmpr==2) UTIF.decode._decodeG2 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==3) UTIF.decode._decodeG3 (data, off, len, tgt, toff, img.width, fo, img["t292"]?((img["t292"][0]&1)==1):false);
 	else if(cmpr==4) UTIF.decode._decodeG4 (data, off, len, tgt, toff, img.width, fo);
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, len, tgt, toff,8);
@@ -817,6 +818,29 @@ UTIF.decode._makeDiff = function(line)
 	out.push(line.length,0,line.length,1);  return out;
 }
 
+UTIF.decode._decodeG2 = function(data, off, slen, tgt, toff, w, fo)
+{
+	var U = UTIF.decode, boff=off<<3, len=0, wrd="";
+	var line=[];
+	var clr = 0;
+	var y=0;
+	var bipl = Math.ceil(w/8)*8;
+	
+	while((boff>>>3)<off+slen) {
+		var bit =0;
+		if(fo==1) bit = (data[boff>>>3]>>>(7-(boff&7)))&1;
+		if(fo==2) bit = (data[boff>>>3]>>>(  (boff&7)))&1;
+		boff++;  wrd+=bit;
+		
+		len = U._lens[clr][wrd];
+		if(len!=null) {
+			U._addNtimes(line,len,clr);  wrd="";
+			if(len<64) clr = 1-clr;  
+			if(line.length==w) {  U._writeBits(line, tgt, toff*8+y*bipl);  line=[];  y++;  clr=0;  if((boff&7)!=0) boff+=8-(boff&7);  if(len>=64) boff+=8;   }
+		}
+	}
+}
+
 UTIF.decode._decodeG3 = function(data, off, slen, tgt, toff, w, fo, twoDim)
 {
 	var U = UTIF.decode, boff=off<<3, len=0, wrd="";
@@ -1062,10 +1086,18 @@ UTIF.toRGBA8 = function(out, scl)
 			if(smpls==4) for(var i=0; i<qarea; i++) img[i] = data[i];
 			if(smpls==3) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*3;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }
 		}
-		else{  // 3x 16-bit channel
+		else if(bps==16){  // 3x 16-bit channel
 			if(smpls==4) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*8+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=data[ti+6];    }
 			if(smpls==3) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*6+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=255;           }
 		}
+		else if(bps==32){
+			if(!img.isLE) for(var i=0; i<data.length; i+=4) {  var t=data[i];  data[i]=data[i+3];  data[i+3]=t;  t=data[i+1];  data[i+1]=data[i+2];  data[i+2]=t;  }
+			var ndt = new Float32Array(data.buffer);  // t339 is [3,3,3]
+			if(smpls==3) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*3;  
+				img[qi]=~~(0.5+ndt[ti]*255);  img[qi+1]=~~(0.5+ndt[ti+1]*255);  img[qi+2]=~~(0.5+ndt[ti+2]*255);  img[qi+3]=255;           }
+			else throw smpls;
+		}
+		else throw bps;
 	}
 	else if(intp==3)
 	{
@@ -1264,32 +1296,32 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 	}
 }
 
-UTIF.LosslessJpegDecode =function(){var $,h;function m(){return $[h++]}function u(){return $[h++]<<8|$[h++]}function _(p){var q=m(),i=[0,0,0,255],c=[],z=8;
-for(var X=0;X<16;X++)c[X]=m();for(var X=0;X<16;X++){for(var n=0;n<c[X];n++){var a=V(i,0,X+1,1);i[a+3]=m()}}var Y=new Uint8Array(1<<z);
-p[q]=[new Uint8Array(i),Y];for(var X=0;X<1<<z;X++){var l=z,y=X,H=0,F=0;while(i[H+3]==255&&l!=0){F=y>>--l&1;
-H=i[H+F]}Y[X]=H}}function V(p,q,i,c){if(p[q+3]!=255)return 0;if(i==0)return q;for(var X=0;X<2;X++){if(p[q+X]==0){p[q+X]=p.length;
-p.push(0,0,c,255)}var n=V(p,p[q+X],i-1,c+1);if(n!=0)return n}return 0}function t(p){var q=p.a,i=p.b;
-while(q<25&&p.d<p.c){var c=p.data[p.d++];if(!p.e)p.d+=c+1>>>8;i=i<<8|c;q+=8}if(q<0)throw"e";p.a=q;p.b=i}function L(p,q){if(q.a<p)t(q);
-return q.b>>(q.a-=p)&65535>>16-p}function e(p,q){var i=p[0],c=0,X=255,n=0;if(q.a<16)t(q);var a=q.b>>q.a-8&255;
-c=p[1][a];X=i[c+3];q.a-=i[c+2];while(X==255){n=q.b>>--q.a&1;c=i[c+n];X=i[c+3]}return X}function Q(p,q){if(p<32768>>16-q)p+=-(1<<q)+1;
-return p}function K(p,q){var i=e(p,q);if(i==0)return 0;if(i==16)return-32768;var c=L(i,q);return Q(c,i)}function o(p,q,i,c,X,n){for(var a=0;
-a<n;a++){var h=a*q;for(var z=0;z<q;z+=X)for(var l=0;l<X;l++)p[h+z+l]=K(c[l],i)}}function A(p,q){return Q(L(p,q),p)}function J(p,q,i,c,X){var n=$.length-h;
-for(var a=0;a<n;a+=4){var z=$[h+a];$[h+a]=$[h+a+3];$[h+a+3]=z;var z=$[h+a+1];$[h+a+1]=$[h+a+2];$[h+a+2]=z}for(var Y=0;
-Y<X;Y++){var l=32768,y=32768;for(var H=0;H<q;H+=2){var F=e(c,i),I=e(c,i);if(F!=0)l+=A(F,i);if(I!=0)y+=A(I,i);
-p[Y*q+H]=l&65535;p[Y*q+H+1]=y&65535}}}function M(p){$=p;h=0;if(u()!=65496)throw"e";var q=[],i=0,c=0,X=[],n=[],a=[],z=0,Y=0,l=0;
-while(!0){var y=u();if(y==65535){h--;continue}var H=u();if(y==65475){c=m();Y=u();l=u();z=m();for(var F=0;
-F<z;F++){var I=m(),x=m(),T=m();if(T!=0)throw"e";q[I]=[F,x>>4,x&15]}}else if(y==65476){var P=h+H-2;while(h<P)_(n)}else if(y==65498){h++;
-for(var F=0;F<z;F++){var E=m(),S=q[E];a[S[0]]=n[m()>>>4];X[S[0]]=S.slice(1)}i=m();h+=2;break}else{h+=H-2}}var r=c>8?Uint16Array:Uint8Array,G=new r(Y*l*z),g={a:0,b:0,e:i==8,d:h,data:$,c:$.length};
-if(g.e)J(G,l*z,g,a[0],Y);else{var B=[],D=0,v=0;for(var F=0;F<z;F++){var j=X[F],U=j[0],s=j[1];if(U>D)D=U;
-if(s>v)v=s;B.push(U*s)}if(D!=1||v!=1){var O=[],R=0;for(var F=0;F<z;F++){for(var d=0;d<B[F];d++)O.push(a[F]);
-R+=B[F]}var Z=l/D,C=Y/v;o(G,Z*R,g,O,R,C);f(G,i,Z,C,R-2,R,R,c);var b=G.slice(0);for(var s=0;s<Y;s++)for(var U=0;
-U<l;U++){var k=(s*l+U)*z,a5=~~(s/v),a3=~~(U/D),a0=a5*Z+a3,N=0;for(var F=0;F<z;F++){var a2=U&1,a6=s&1,a4=v==2?s&1:0,a1=a0*R+N+(F==0?a2:0);
-G[k+F]=b[a1];N+=B[F]}}f(G,i,l,Y,0,1,z,c)}else{o(G,l*z,g,a,z,Y);f(G,i,l,Y,0,z,z,c)}}return G}function f(p,q,i,c,X,n,z,Y){var l=i*z;
-for(var y=X;y<n;y++)p[y]+=1<<Y-1;for(var H=z;H<l;H+=z)for(var y=X;y<n;y++)p[H+y]+=p[H+y-z];for(var F=1;
-F<c;F++){var I=F*l;for(var y=X;y<n;y++)p[I+y]+=p[I+y-l];for(var H=z;H<l;H+=z){for(var y=X;y<n;y++){var x=I+H+y,T=x-l,P=p[x-z],w=0;
-if(q==0)w=0;else if(q==1)w=P;else if(q==2)w=p[T];else if(q==3)w=p[T-z];else if(q==4)w=P+(p[T]-p[T-z]);
-else if(q==5)w=P+(p[T]-p[T-z]>>>1);else if(q==6)w=p[T]+(P-p[T-z]>>>1);else if(q==7)w=P+p[T]>>>1;else throw q;
-p[x]+=w}}}}return M}();
+UTIF.LosslessJpegDecode =function(){var o,_;function u(){return o[_++]}function G(){return o[_++]<<8|o[_++]}function Z(l){var A=u(),g=[0,0,0,255],K=[],L=8;
+for(var t=0;t<16;t++)K[t]=u();for(var t=0;t<16;t++){for(var F=0;F<K[t];F++){var $=P(g,0,t+1,1);g[$+3]=u()}}var w=new Uint8Array(1<<L);
+l[A]=[new Uint8Array(g),w];for(var t=0;t<1<<L;t++){var r=L,M=t,X=0,y=0;while(g[X+3]==255&&r!=0){y=M>>--r&1;
+X=g[X+y]}w[t]=X}}function P(l,A,g,K){if(l[A+3]!=255)return 0;if(g==0)return A;for(var t=0;t<2;t++){if(l[A+t]==0){l[A+t]=l.length;
+l.push(0,0,K,255)}var F=P(l,l[A+t],g-1,K+1);if(F!=0)return F}return 0}function f(l){var A=l.b,g=l.a;
+while(A<25&&l.e<l.d){var K=l.data[l.e++];if(!l.c)l.e+=K+1>>>8;g=g<<8|K;A+=8}if(A<0)throw"e";l.b=A;l.a=g}function O(l,A){if(A.b<l)f(A);
+return A.a>>(A.b-=l)&65535>>16-l}function B(l,A){var g=l[0],K=0,t=255,F=0;if(A.b<16)f(A);var $=A.a>>A.b-8&255;
+K=l[1][$];t=g[K+3];A.b-=g[K+2];while(t==255){F=A.a>>--A.b&1;K=g[K+F];t=g[K+3]}return t}function D(l,A){if(l<32768>>16-A)l+=-(1<<A)+1;
+return l}function h(l,A){var g=B(l,A);if(g==0)return 0;if(g==16)return-32768;var K=O(g,A);return D(K,g)}function a(l,A,g,K,t,F){for(var $=0;
+$<F;$++){var _=$*A;for(var L=0;L<A;L+=t)for(var r=0;r<t;r++)l[_+L+r]=h(K[r],g)}}function j(l,A){return D(O(l,A),l)}function b(l,A,g,K,t){var F=o.length-_;
+for(var $=0;$<F;$+=4){var L=o[_+$];o[_+$]=o[_+$+3];o[_+$+3]=L;var L=o[_+$+1];o[_+$+1]=o[_+$+2];o[_+$+2]=L}for(var w=0;
+w<t;w++){var r=32768,M=32768;for(var X=0;X<A;X+=2){var y=B(K,g),z=B(K,g);if(y!=0)r+=j(y,g);if(z!=0)M+=j(z,g);
+l[w*A+X]=r&65535;l[w*A+X+1]=M&65535}}}function x(l){o=l;_=0;if(G()!=65496)throw"e";var A=[],g=0,K=0,t=[],F=[],$=[],L=0,w=0,r=0;
+while(!0){var M=G();if(M==65535){_--;continue}var X=G();if(M==65475){K=u();w=G();r=G();L=u();for(var y=0;
+y<L;y++){var z=u(),q=u(),n=u();if(n!=0)throw"e";A[z]=[y,q>>4,q&15]}}else if(M==65476){var m=_+X-2;while(_<m)Z(F)}else if(M==65498){_++;
+for(var y=0;y<L;y++){var p=u(),i=A[p];$[i[0]]=F[u()>>>4];t[i[0]]=i.slice(1)}g=u();_+=2;break}else{_+=X-2}}var T=K>8?Uint16Array:Uint8Array,Y=new T(w*r*L),d={b:0,a:0,c:g==8,e:_,data:o,d:o.length};
+if(d.c)b(Y,r*L,d,$[0],w);else{var v=[],Q=0,C=0;for(var y=0;y<L;y++){var U=t[y],s=U[0],H=U[1];if(s>Q)Q=s;
+if(H>C)C=H;v.push(s*H)}if(Q!=1||C!=1){var E=[],c=0;for(var y=0;y<L;y++){for(var R=0;R<v[y];R++)E.push($[y]);
+c+=v[y]}var k=r/Q,e=w/C;a(Y,k*c,d,E,c,e);J(Y,g,k,e,c-2,c,c,K);var V=Y.slice(0);for(var H=0;H<w;H++)for(var s=0;
+s<r;s++){var a5=(H*r+s)*L,a3=~~(H/C),a1=~~(s/Q),a6=a3*k+a1,I=0;for(var y=0;y<L;y++){var N=s&1,a2=H&1,a0=C==2?H&1:0,a4=a6*c+I+(y==0?C==1?N:N*2+a2:0);
+Y[a5+y]=V[a4];I+=v[y]}}J(Y,g,r,w,0,1,L,K)}else{a(Y,r*L,d,$,L,w);J(Y,g,r,w,0,L,L,K)}}return Y}function J(l,A,g,K,t,F,L,w){var r=g*L;
+for(var M=t;M<F;M++)l[M]+=1<<w-1;for(var X=L;X<r;X+=L)for(var M=t;M<F;M++)l[X+M]+=l[X+M-L];for(var y=1;
+y<K;y++){var z=y*r;for(var M=t;M<F;M++)l[z+M]+=l[z+M-r];for(var X=L;X<r;X+=L){for(var M=t;M<F;M++){var q=z+X+M,n=q-r,m=l[q-L],S=0;
+if(A==0)S=0;else if(A==1)S=m;else if(A==2)S=l[n];else if(A==3)S=l[n-L];else if(A==4)S=m+(l[n]-l[n-L]);
+else if(A==5)S=m+(l[n]-l[n-L]>>>1);else if(A==6)S=l[n]+(m-l[n-L]>>>1);else if(A==7)S=m+l[n]>>>1;else throw A;
+l[q]+=S}}}}return x}();
 
 
 (function(){var G=0,F=1,i=2,b=3,J=4,N=5,E=6,s=7,c=8,T=9,a3=10,f=11,q=12,M=13,m=14,x=15,L=16,$=17,p=18;
