@@ -19,6 +19,6 @@
     "conversion"
   ],
   "dependencies": {
-    "pako": "^1.0.5"
+    "pako": "^1.0.11"
   }
 }
