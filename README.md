@@ -72,4 +72,4 @@ You should not save images into TIFF format in the 21st century. Save them as PN
 * returns ArrayBuffer of binary data. You can use it to encode EXIF data.
 
 ## Dependencies
-TIFF format sometimes uses Inflate algorithm for compression (but it is quite rare). Right now, UTIF.js calls [Pako.js](https://github.com/nodeca/pako) for the Inflate method.
+TIFF format sometimes uses Inflate algorithm for compression (but it is quite rare). Right now, UTIF.js calls for Inflate method in [zlib](https://nodejs.org/api/zlib.html#zlibinflatesyncbuffer-options) when running NodeJS 8.0.0 or higher otherwise  [Pako.js](https://github.com/nodeca/pako).
