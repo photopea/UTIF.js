@@ -177,7 +177,7 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 	else if(cmpr==5) UTIF.decode._decodeLZW(data, off, len, tgt, toff,8);
 	else if(cmpr==6) UTIF.decode._decodeOldJPEG(img, data, off, len, tgt, toff);
 	else if(cmpr==7 || cmpr==34892) UTIF.decode._decodeNewJPEG(img, data, off, len, tgt, toff);
-	else if(cmpr==8 || cmpr==32946) {  var src = new Uint8Array(data.buffer,off+2,len-6);  var bin = pako["inflateRaw"](src);  tgt.set(bin,toff);  }
+	else if(cmpr==8 || cmpr==32946) {  var src = new Uint8Array(data.buffer,off+2,len-6);  var bin = pako["inflateRaw"](src);  if(toff+bin.length<tgt.length) tgt.set(bin,toff);  }
 	else if(cmpr==9) UTIF.decode._decodeVC5(data,off,len,tgt,toff,img["t33422"]);
 	else if(cmpr==32767) UTIF.decode._decodeARW(img, data, off, len, tgt, toff);
 	else if(cmpr==32773) UTIF.decode._decodePackBits(data, off, len, tgt, toff);
@@ -755,7 +755,7 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 			if(img.isLE) for(var i=0; i<olen; i++ ) {  tgt[toff+(i<<1)] = (out[i]&255);  tgt[toff+(i<<1)+1] = (out[i]>>>8);  }
 			else         for(var i=0; i<olen; i++ ) {  tgt[toff+(i<<1)] = (out[i]>>>8);  tgt[toff+(i<<1)+1] = (out[i]&255);  }
 		}
-		else if(bps==14 || bps==12) {  // 4 * 14 == 56 == 7 * 8
+		else if(bps==14 || bps==12 || bps==10) {  // 4 * 14 == 56 == 7 * 8
 			var rst = 16-bps;
 			for(var i=0; i<olen; i++) UTIF.decode._putsF(tgt, i*bps, out[i]<<rst);
 		}
@@ -1344,8 +1344,8 @@ UTIF.toRGBA8 = function(out, scl)
 		if(bps== 8) 
 		{
 			if(smpls==1) for(var i=0; i<area; i++) {  img[4*i]=img[4*i+1]=img[4*i+2]=data[i];  img[4*i+3]=255;  }
-			if(smpls==4) for(var i=0; i<qarea; i++) img[i] = data[i];
-			if(smpls==3) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*3;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }
+			if(smpls==3) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*3    ;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=255;    }
+			if(smpls>=4) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*smpls;  img[qi]=data[ti];  img[qi+1]=data[ti+1];  img[qi+2]=data[ti+2];  img[qi+3]=data[ti+3];    }
 		}
 		else if(bps==16){  // 3x 16-bit channel
 			if(smpls==4) for(var i=0; i<area; i++) {  var qi=i<<2, ti=i*8+1;  img[qi]=data[ti];  img[qi+1]=data[ti+2];  img[qi+2]=data[ti+4];  img[qi+3]=data[ti+6];    }
