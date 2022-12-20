@@ -1330,6 +1330,8 @@ UTIF.toRGBA8 = function(out, scl)
 	else if(intp==1)
 	{
 		if(scl==null) scl=1/256;
+		var f32 = new Float32Array(data.buffer);
+		var sf = out["t339"]?out["t339"][0] : null;  if(bps==32 && sf!=3) throw "e";  // sample format
 		
 		for(var y=0; y<h; y++) {
 			var off = y*bpl, io = y*w;
@@ -1337,6 +1339,7 @@ UTIF.toRGBA8 = function(out, scl)
 			if(bps== 2) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>2)])>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
 			if(bps== 8) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i*smpls];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }
 			if(bps==16) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=off+(2*i), px=(data[o+1]<<8)|data[o];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,~~(px*scl));  img[qi+3]=255;    } // ladoga.tif
+			if(bps==32) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=(off>>>2)+i, px=f32[o];  img[qi]=img[qi+1]=img[qi+2]= ~~(0.5+255*px);  img[qi+3]=255;    }
 		}
 	}
 	else if(intp==2)
