@@ -1412,7 +1412,7 @@ UTIF.toRGBA8 = function(out, scl)
 		for(var i=0; i<area; i++) {
 			var qi=i<<2, si=i*smpls;  
 			
-			if(UDOC) {
+			if(window.UDOC) {
 				var C=data[si], M=data[si+1], Y=data[si+2], K=data[si+3];
 				var c = UDOC.C.cmykToRgb([C*(1/255), M*(1/255), Y*(1/255), K*(1/255)]);
 				img[qi] = ~~(0.5+255*c[0]);  img[qi+1] = ~~(0.5+255*c[1]);  img[qi+2] = ~~(0.5+255*c[2]);
@@ -1579,37 +1579,39 @@ UTIF._copyTile = function(tb, tw, th, b, w, h, xoff, yoff)
 	}
 }
 
-UTIF.LosslessJpegDecode =function(){var x,u;function e(){return x[u++]}function M(){return x[u++]<<8|x[u++]}function A(p){var J=e(),a=[0,0,0,255],v=[],V=8;
-for(var c=0;c<16;c++)v[c]=e();for(var c=0;c<16;c++){for(var Q=0;Q<v[c];Q++){var Y=I(a,0,c+1,1);a[Y+3]=e()}}var s=new Uint8Array(1<<V);
-p[J]=[new Uint8Array(a),s];for(var c=0;c<1<<V;c++){var g=V,i=c,K=0,j=0;while(a[K+3]==255&&g!=0){j=i>>--g&1;
-K=a[K+j]}s[c]=K}}function I(p,J,a,v){if(p[J+3]!=255)return 0;if(a==0)return J;for(var c=0;c<2;c++){if(p[J+c]==0){p[J+c]=p.length;
-p.push(0,0,v,255)}var Q=I(p,p[J+c],a-1,v+1);if(Q!=0)return Q}return 0}function o(p){var J=p.c,a=p.d;
-while(J<25&&p.e<p.a){var v=p.data[p.e++];if(!p.b)p.e+=v+1>>>8;a=a<<8|v;J+=8}if(J<0)throw"e";p.c=J;p.d=a}function $(p,J){if(J.c<p)o(J);
-return J.d>>(J.c-=p)&65535>>16-p}function U(p,J){var a=p[0],v=0,c=255,Q=0;if(J.c<16)o(J);var Y=J.d>>J.c-8&255;
-v=p[1][Y];c=a[v+3];J.c-=a[v+2];while(c==255){Q=J.d>>--J.c&1;v=a[v+Q];c=a[v+3]}return c}function Z(p,J){if(p<32768>>16-J)p+=-(1<<J)+1;
-return p}function q(p,J){var a=U(p,J);if(a==0)return 0;if(a==16)return-32768;var v=$(a,J);return Z(v,a)}function f(p,J,a,v,c,Q){for(var Y=0;
-Y<Q;Y++){var u=Y*J;for(var V=0;V<J;V+=c)for(var g=0;g<c;g++)p[u+V+g]=q(v[g],a)}}function y(p,J){return Z($(p,J),p)}function a0(p,J,a,v,c){var Q=x.length-u;
-for(var Y=0;Y<Q;Y+=4){var V=x[u+Y];x[u+Y]=x[u+Y+3];x[u+Y+3]=V;var V=x[u+Y+1];x[u+Y+1]=x[u+Y+2];x[u+Y+2]=V}for(var s=0;
-s<c;s++){var g=32768,i=32768;for(var K=0;K<J;K+=2){var j=U(v,a),w=U(v,a);if(j!=0)g+=y(j,a);if(w!=0)i+=y(w,a);
-p[s*J+K]=g&65535;p[s*J+K+1]=i&65535}}}function m(p){x=p;u=0;if(M()!=65496)throw"e";var J=[],a=0,v=0,c=[],Q=[],Y=[],V=0,s=0,g=0;
-while(!0){var i=M();if(i==65535){u--;continue}var K=M();if(i==65475){v=e();s=M();g=M();V=e();for(var j=0;
-j<V;j++){var w=e(),d=e(),t=e();if(t!=0)throw"e";J[w]=[j,d>>4,d&15]}}else if(i==65476){var T=u+K-2;while(u<T)A(Q)}else if(i==65498){u++;
-for(var j=0;j<V;j++){var a1=e(),N=J[a1];Y[N[0]]=Q[e()>>>4];c[N[0]]=N.slice(1)}a=e();u+=2;break}else{u+=K-2}}var a2=v>8?Uint16Array:Uint8Array,D=new a2(s*g*V),B={c:0,d:0,b:a==8,e:u,data:x,a:x.length};
-if(B.b)a0(D,g*V,B,Y[0],s);else{var O=[],b=0,z=0;for(var j=0;j<V;j++){var S=c[j],X=S[0],_=S[1];if(X>b)b=X;
-if(_>z)z=_;O.push(X*_)}if(b!=1||z!=1){if(V!=3||O[1]!=1||O[2]!=1)throw"e";if(b!=2||z!=1&&z!=2)throw"e";
-var F=[],C=0;for(var j=0;j<V;j++){for(var R=0;R<O[j];R++)F.push(Y[j]);C+=O[j]}var P=g/b,L=s/z,H=P*L;
-f(D,P*C,B,F,C,L);n(D,a,P,L,C-2,C,C,v);var k=new Uint16Array(H*O[0]);if(b==2&&z==2){for(var j=0;j<H;j++){k[4*j]=D[6*j];
-k[4*j+1]=D[6*j+1];k[4*j+2]=D[6*j+2];k[4*j+3]=D[6*j+3]}n(k,a,P*4,L,0,1,1,v);for(var j=0;j<H;j++){D[6*j]=k[4*j];
-D[6*j+1]=k[4*j+1];D[6*j+2]=k[4*j+2];D[6*j+3]=k[4*j+3]}}if(b==2&&z==1){for(var j=0;j<H;j++){k[2*j]=D[4*j];
-k[2*j+1]=D[4*j+1]}n(k,a,P*2,L,0,1,1,v);for(var j=0;j<H;j++){D[4*j]=k[2*j];D[4*j+1]=k[2*j+1]}}var E=D.slice(0);
-for(var _=0;_<s;_++){if(z==2)for(var X=0;X<g;X++){var h=(_*g+X)*V,l=((_>>>1)*P+(X>>>1))*C,G=(_&1)*2+(X&1);
-D[h]=E[l+G];D[h+1]=E[l+4];D[h+2]=E[l+5]}else for(var X=0;X<g;X++){var h=(_*g+X)*V,l=(_*P+(X>>>1))*C,G=X&1;
-D[h]=E[l+G];D[h+1]=E[l+2];D[h+2]=E[l+3]}}}else{f(D,g*V,B,Y,V,s);n(D,a,g,s,0,V,V,v)}}return D}function n(p,J,a,v,c,Q,V,s){var g=a*V;
-for(var i=c;i<Q;i++)p[i]+=1<<s-1;for(var K=V;K<g;K+=V)for(var i=c;i<Q;i++)p[K+i]+=p[K+i-V];for(var j=1;
-j<v;j++){var w=j*g;for(var i=c;i<Q;i++)p[w+i]+=p[w+i-g];for(var K=V;K<g;K+=V){for(var i=c;i<Q;i++){var d=w+K+i,t=d-g,T=p[d-V],r=0;
-if(J==0)r=0;else if(J==1)r=T;else if(J==2)r=p[t];else if(J==3)r=p[t-V];else if(J==4)r=T+(p[t]-p[t-V]);
-else if(J==5)r=T+(p[t]-p[t-V]>>>1);else if(J==6)r=p[t]+(T-p[t-V]>>>1);else if(J==7)r=T+p[t]>>>1;else throw J;
-p[d]+=r}}}}return m}();
+UTIF.LosslessJpegDecode =function(){var b,O;function l(){return b[O++]}function m(){return b[O++]<<8|b[O++]}function a0(h){var V=l(),I=[0,0,0,255],f=[],G=8;
+for(var w=0;w<16;w++)f[w]=l();for(var w=0;w<16;w++){for(var x=0;x<f[w];x++){var T=z(I,0,w+1,1);I[T+3]=l()}}var E=new Uint8Array(1<<G);
+h[V]=[new Uint8Array(I),E];for(var w=0;w<1<<G;w++){var s=G,_=w,Y=0,F=0;while(I[Y+3]==255&&s!=0){F=_>>--s&1;
+Y=I[Y+F]}E[w]=Y}}function z(h,V,I,f){if(h[V+3]!=255)return 0;if(I==0)return V;for(var w=0;w<2;w++){if(h[V+w]==0){h[V+w]=h.length;
+h.push(0,0,f,255)}var x=z(h,h[V+w],I-1,f+1);if(x!=0)return x}return 0}function i(h){var V=h.b,I=h.f;
+while(V<25&&h.a<h.d){var f=h.data[h.a++];if(f==255&&!h.c)h.a++;I=I<<8|f;V+=8}if(V<0)throw"e";h.b=V;h.f=I}function H(h,V){if(V.b<h)i(V);
+return V.f>>(V.b-=h)&65535>>16-h}function g(h,V){var I=h[0],f=0,w=255,x=0;if(V.b<16)i(V);var T=V.f>>V.b-8&255;
+f=h[1][T];w=I[f+3];V.b-=I[f+2];while(w==255){x=V.f>>--V.b&1;f=I[f+x];w=I[f+3]}return w}function P(h,V){if(h<32768>>16-V)h+=-(1<<V)+1;
+return h}function a2(h,V){var I=g(h,V);if(I==0)return 0;if(I==16)return-32768;var f=H(I,V);return P(f,I)}function X(h,V,I,f,w,x){var T=0;
+for(var G=0;G<x;G++){var s=G*V;for(var _=0;_<V;_+=w){T++;for(var Y=0;Y<w;Y++)h[s+_+Y]=a2(f[Y],I)}if(I.e!=0&&T%I.e==0&&G!=0){var F=I.a,t=I.data;
+while(t[F]!=255||!(208<=t[F+1]&&t[F+1]<=215))F--;I.a=F+2;I.f=0;I.b=0}}}function o(h,V){return P(H(h,V),h)}function a1(h,V,I,f,w){var x=b.length-O;
+for(var T=0;T<x;T+=4){var G=b[O+T];b[O+T]=b[O+T+3];b[O+T+3]=G;var G=b[O+T+1];b[O+T+1]=b[O+T+2];b[O+T+2]=G}for(var E=0;
+E<w;E++){var s=32768,_=32768;for(var Y=0;Y<V;Y+=2){var F=g(f,I),t=g(f,I);if(F!=0)s+=o(F,I);if(t!=0)_+=o(t,I);
+h[E*V+Y]=s&65535;h[E*V+Y+1]=_&65535}}}function C(h){b=h;O=0;if(m()!=65496)throw"e";var V=[],I=0,f=0,w=0,x=[],T=[],G=[],E=0,s=0,_=0;
+while(!0){var Y=m();if(Y==65535){O--;continue}var F=m();if(Y==65475){f=l();s=m();_=m();E=l();for(var t=0;
+t<E;t++){var a=l(),J=l(),r=l();if(r!=0)throw"e";V[a]=[t,J>>4,J&15]}}else if(Y==65476){var a3=O+F-2;while(O<a3)a0(T)}else if(Y==65498){O++;
+for(var t=0;t<E;t++){var a5=l(),v=V[a5];G[v[0]]=T[l()>>>4];x[v[0]]=v.slice(1)}I=l();O+=2;break}else if(Y==65501){w=m()}else{O+=F-2}}var a4=f>8?Uint16Array:Uint8Array,$=new a4(s*_*E),M={b:0,f:0,c:I==8,a:O,data:b,d:b.length,e:w};
+if(M.c)a1($,_*E,M,G[0],s);else{var c=[],p=0,D=0;for(var t=0;t<E;t++){var N=x[t],S=N[0],K=N[1];if(S>p)p=S;
+if(K>D)D=K;c.push(S*K)}if(p!=1||D!=1){if(E!=3||c[1]!=1||c[2]!=1)throw"e";if(p!=2||D!=1&&D!=2)throw"e";
+var u=[],Z=0;for(var t=0;t<E;t++){for(var R=0;R<c[t];R++)u.push(G[t]);Z+=c[t]}var B=_/p,e=s/D,d=B*e;
+X($,B*Z,M,u,Z,e);j($,I,B,e,Z-2,Z,Z,f);var A=new Uint16Array(d*c[0]);if(p==2&&D==2){for(var t=0;t<d;t++){A[4*t]=$[6*t];
+A[4*t+1]=$[6*t+1];A[4*t+2]=$[6*t+2];A[4*t+3]=$[6*t+3]}j(A,I,B*4,e,0,1,1,f);for(var t=0;t<d;t++){$[6*t]=A[4*t];
+$[6*t+1]=A[4*t+1];$[6*t+2]=A[4*t+2];$[6*t+3]=A[4*t+3]}}if(p==2&&D==1){for(var t=0;t<d;t++){A[2*t]=$[4*t];
+A[2*t+1]=$[4*t+1]}j(A,I,B*2,e,0,1,1,f);for(var t=0;t<d;t++){$[4*t]=A[2*t];$[4*t+1]=A[2*t+1]}}var n=$.slice(0);
+for(var K=0;K<s;K++){if(D==2)for(var S=0;S<_;S++){var q=(K*_+S)*E,k=((K>>>1)*B+(S>>>1))*Z,y=(K&1)*2+(S&1);
+$[q]=n[k+y];$[q+1]=n[k+4];$[q+2]=n[k+5]}else for(var S=0;S<_;S++){var q=(K*_+S)*E,k=(K*B+(S>>>1))*Z,y=S&1;
+$[q]=n[k+y];$[q+1]=n[k+2];$[q+2]=n[k+3]}}}else{X($,_*E,M,G,E,s);if(w==0)j($,I,_,s,0,E,E,f);else{var U=Math.floor(w/_);
+for(var K=0;K<s;K+=U){var L=$.slice(K*_*E,(K+U)*_*E);j(L,I,_,U,0,E,E,f);$.set(L,K*_*E)}}}}return $}function j(h,V,I,f,w,x,G,E){var s=I*G;
+for(var _=w;_<x;_++)h[_]+=1<<E-1;for(var Y=G;Y<s;Y+=G)for(var _=w;_<x;_++)h[Y+_]+=h[Y+_-G];for(var F=1;
+F<f;F++){var t=F*s;for(var _=w;_<x;_++)h[t+_]+=h[t+_-s];for(var Y=G;Y<s;Y+=G){for(var _=w;_<x;_++){var a=t+Y+_,J=a-s,r=h[a-G],Q=0;
+if(V==0)Q=0;else if(V==1)Q=r;else if(V==2)Q=h[J];else if(V==3)Q=h[J-G];else if(V==4)Q=r+(h[J]-h[J-G]);
+else if(V==5)Q=r+(h[J]-h[J-G]>>>1);else if(V==6)Q=h[J]+(r-h[J-G]>>>1);else if(V==7)Q=r+h[J]>>>1;else throw V;
+h[a]+=Q}}}}return C}();
 
 
 (function(){var G=0,F=1,i=2,b=3,J=4,N=5,E=6,s=7,c=8,T=9,a3=10,f=11,q=12,M=13,m=14,x=15,L=16,$=17,p=18;
