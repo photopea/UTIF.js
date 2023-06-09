@@ -70,6 +70,3 @@ You should not save images into TIFF format in the 21st century. Save them as PN
 #### `UTIF.encode(ifds)`
 * `ifds`: array of IFDs (image file directories). An IFD is a JS object with properties "tXYZ" (where XYZ are TIFF tags)
 * returns ArrayBuffer of binary data. You can use it to encode EXIF data.
-
-## Dependencies
-TIFF format sometimes uses Inflate algorithm for compression (but it is quite rare). Right now, UTIF.js calls [Pako.js](https://github.com/nodeca/pako) for the Inflate method.
