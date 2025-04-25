@@ -1458,7 +1458,7 @@ UTIF.toRGBA8 = function(out, scl)
 		for(var i=0; i<area; i++) {
 			var qi=i<<2, si=i*smpls;  
 			
-			if(window.UDOC) {
+			if(window && window.UDOC) {
 				var C=data[si], M=data[si+1], Y=data[si+2], K=data[si+3];
 				var c = UDOC.C.cmykToRgb([C*(1/255), M*(1/255), Y*(1/255), K*(1/255)]);
 				img[qi] = ~~(0.5+255*c[0]);  img[qi+1] = ~~(0.5+255*c[1]);  img[qi+2] = ~~(0.5+255*c[2]);
