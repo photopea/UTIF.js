@@ -133,6 +133,7 @@ UTIF.decodeImage = function(buff, img, ifds)
 	var cmpr = img["t259"] ? img["t259"][0] : 1;  //delete img["t259"];
 	var fo   = img["t266"] ? img["t266"][0] : 1;  //delete img["t266"];
 	if(cmpr==7 && img["t258"] && img["t258"].length!=3 && img["t258"][0]==8)  {  img["t258"]=[8,8,8];  img["t277"]=[3];  }  // not for lossless JPEG - "RAW_CANON_EOS_550D.CR2"
+	if(img["t277"]==null && img["t258"] && img["t258"].length==3) img["t277"]=[3];  // t277 missing in some 3-channel JPGs inside CR2 - "RAW_CANON_350D.CR2"
 
 	var bps = img["t258"]?img["t258"][0]:1;
 	var spp = img["t277"]?img["t277"][0]:1;  //if(cmpr==7) spp=3; // jpg
@@ -350,6 +351,29 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
                 }
                 if (RW2_Format == 7) {
                     throw RW2_Format;
+					
+					/*
+					for(var y=0; y<rawHeight; y++) {
+						var ix = 0;
+						for(var x=0; x<rawWidth; x+=9) {
+							var so = off+(y*10752)+x*16;
+							
+							var idx = y*rawWidth+x;
+							var bytes = data.slice(so,so+16);
+							
+									result[idx    ] = bytes[0] + ((bytes[1] & 0x3F) << 8);
+                                    result[idx + 1] = (bytes[1] >> 6) + 4 * (bytes[2]) + ((bytes[3] & 0xF) << 10);
+                                    result[idx + 2] = (bytes[3] >> 4) + 16 * (bytes[4]) + ((bytes[5] & 3) << 12);
+                                    result[idx + 3] = ((bytes[5] & 0xFC) >> 2) + (bytes[6] << 6);
+                                    result[idx + 4] = bytes[7] + ((bytes[8] & 0x3F) << 8);
+                                    result[idx + 5] = (bytes[8] >> 6) + 4 * bytes[9] + ((bytes[10] & 0xF) << 10);
+                                    result[idx + 6] = (bytes[10] >> 4) + 16 * bytes[11] + ((bytes[12] & 3) << 12);
+                                    result[idx + 7] = ((bytes[12] & 0xFC) >> 2) + (bytes[13] << 6);
+                                    result[idx + 8] = bytes[14] + ((bytes[15] & 0x3F) << 8);
+							//ix+=9;
+							//if(ix>=rawWidth/9) ix=(ix%9)+1;
+						}
+					}  //*/
 
                     // Skatch of version 7 
                     /*
