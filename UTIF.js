@@ -230,7 +230,7 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
 	//console.log(Date.now()-time);
 	
 	var pco = img["t284"] ? img["t284"][0] : 1;  // planar configuration
-	var bps = (img["t258"]?Math.min(32,img["t258"][0]):1);
+	var bps = (img["t258"]?Math.min(64,img["t258"][0]):1);
 	var noc = pco==2 ? 1 : (img["t277"]?img["t277"][0]:1), bpp=(bps*noc)>>>3, bpl = Math.ceil(bps*noc*w/8);
 	
 	// convert to Little Endian  /*
@@ -1354,6 +1354,8 @@ UTIF._readIFD = function(bin, data, offset, ifds, depth, prm)
 	return offset;
 }
 
+UTIF._remapKey = function(key) {  if(key=="exifIFD") key="t34665";  if(key=="gpsiIFD") key="t34853";  return key;  }
+
 UTIF._writeIFD = function(bin, types, data, offset, ifd)
 {
 	var keys = Object.keys(ifd), knum=keys.length;  if(ifd["exifIFD"]) knum--;  if(ifd["gpsiIFD"]) knum--;
@@ -1361,12 +1363,12 @@ UTIF._writeIFD = function(bin, types, data, offset, ifd)
 
 	var eoff = offset + knum*12 + 4;
 	
-	keys.sort(function(a,b) {  return parseInt(a.slice(1))-parseInt(b.slice(1));  });
+	keys.sort(function(a,b) {  a=UTIF._remapKey(a);  b=UTIF._remapKey(b);  return parseInt(a.slice(1))-parseInt(b.slice(1));  });
 
 	for(var ki=0; ki<keys.length; ki++)
 	{
 		var key = keys[ki];  if(key=="t34665" || key=="t34853") continue;  
-		if(key=="exifIFD") key="t34665";  if(key=="gpsiIFD") key="t34853";
+		key=UTIF._remapKey(key);
 		var tag = parseInt(key.slice(1)), type = types.main[tag];  if(type==null) type=types.rest[tag];		
 		if(type==null || type==0) throw new Error("unknown type of tag: "+tag);
 		//console.log(offset+":", tag, type, eoff);
@@ -1415,7 +1417,7 @@ UTIF.toRGBA8 = function(out, scl)
 	var img = new Uint8Array(area*4);
 	//console.log(out);
 	// 0: WhiteIsZero, 1: BlackIsZero, 2: RGB, 3: Palette color, 4: Transparency mask, 5: CMYK
-	var intp = (out["t262"] ? out["t262"][0]: 2), bps = (out["t258"]?Math.min(32,out["t258"][0]):1);
+	var intp = (out["t262"] ? out["t262"][0]: 2), bps = (out["t258"]?Math.min(64,out["t258"][0]):1);
 	if(out["t262"]==null && bps==1) intp=0;
 	
 	var smpls = out["t277"]?out["t277"][0] : (out["t258"]?out["t258"].length : [1,1,3,1,1,4,3][intp]);  //if(out["t259"] && out["t259"][0]==7) smpls=3; // jpg
@@ -1440,6 +1442,7 @@ UTIF.toRGBA8 = function(out, scl)
 	{
 		if(scl==null) scl=1/256;
 		var f32 = ((data.length&3)==0) ? new Float32Array(data.buffer) : null;
+		var f64 = ((data.length&7)==0) ? new Float64Array(data.buffer) : null;
 		
 		for(var y=0; y<h; y++) {
 			var off = y*bpl, io = y*w;
@@ -1448,6 +1451,7 @@ UTIF.toRGBA8 = function(out, scl)
 			if(bps== 8) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i*smpls];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }  // "smpls" needed for newJPEG compression (RGB output) - "jpg7/download.tif"
 			if(bps==16) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=off+(2*i), px=(data[o+1]<<8)|data[o];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,~~(px*scl));  img[qi+3]=255;    } // ladoga.tif
 			if(bps==32) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=(off>>>2)+i, px=f32[o];  img[qi]=img[qi+1]=img[qi+2]= ~~(0.5+255*px);  img[qi+3]=255;    }
+			if(bps==64) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=(off>>>3)+i, px=f64[o];  img[qi]=img[qi+1]=img[qi+2]= ~~(0.5+255*px);  img[qi+3]=255;    }
 		}
 	}
 	else if(intp==2)
