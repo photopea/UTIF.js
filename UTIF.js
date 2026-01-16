@@ -1449,7 +1449,7 @@ UTIF.toRGBA8 = function(out, scl)
 			if(bps== 1) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>3)])>>(7-  (i&7)))&1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
 			if(bps== 2) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>2)])>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
 			if(bps== 8) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i*smpls];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }  // "smpls" needed for newJPEG compression (RGB output) - "jpg7/download.tif"
-			if(bps==16) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=off+(2*i), px=(data[o+1]<<8)|data[o];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,~~(px*scl));  img[qi+3]=255;    } // ladoga.tif
+			if(bps==16) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=off+2*i*smpls, px=(data[o+1]<<8)|data[o];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,~~(px*scl));  img[qi+3]=(smpls==2 ? data[o+2] : 255);    } // ladoga.tif
 			if(bps==32) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=(off>>>2)+i, px=f32[o];  img[qi]=img[qi+1]=img[qi+2]= ~~(0.5+255*px);  img[qi+3]=255;    }
 			if(bps==64) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=(off>>>3)+i, px=f64[o];  img[qi]=img[qi+1]=img[qi+2]= ~~(0.5+255*px);  img[qi+3]=255;    }
 		}
