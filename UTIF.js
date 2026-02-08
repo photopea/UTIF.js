@@ -856,6 +856,16 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 	else
 	{
 		var parser = new UTIF.JpegDecoder();  parser.parse(buff);
+		
+		// When Photometric is RGB (2) and the JPEG stream has no explicit color space
+		// indicator (no Adobe marker), and the component IDs are not the standard
+		// JFIF YCbCr IDs (1,2,3), the JPEG data are likely stored in RGB color space.
+		// Override the JPEG decoder's default assumption of YCbCr when so.
+		if(img["t262"] && img["t262"][0]==2 && !parser.b) {
+			if(parser.W.length==3 && !(parser.W[0].index==1 && parser.W[1].index==2 && parser.W[2].index==3)) {
+				parser.N = 0;
+			}
+		}
 		var decoded = parser.getData({"width":parser.width,"height":parser.height,"forceRGB":true,"isSourcePDF":false});
 		for (var i=0; i<decoded.length; i++) tgt[toff + i] = decoded[i];
 	}
