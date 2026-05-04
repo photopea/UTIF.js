@@ -108,8 +108,9 @@ UTIF.decode = function(buff, prm)
 	var num = bin.readUshort(data, offset);  offset+=2;
 
 	var ifdo = bin.readUint(data, offset);  offset+=4;
-	var ifds = [];
+	var ifds = [], offs=[];
 	while(true) {
+		if(offs.indexOf(ifdo)!=-1) break;  offs.push(ifdo);  // prevent "circular" pointers 
 		var cnt = bin.readUshort(data,ifdo), typ = bin.readUshort(data,ifdo+4);  if(cnt!=0) if(typ<1 || 13<typ) {  log("error in TIFF");  break  };
 		UTIF._readIFD(bin, data, ifdo, ifds, 0, prm);
 		
@@ -817,7 +818,8 @@ UTIF.decode._decodeNewJPEG = function(img, data, off, len, tgt, toff)
 	}
 	else for (var i=0; i<len; i++) buff[i] = data[off+i];
 
-	if(img["t262"][0]==32803 || (img["t259"][0]==7 && img["t262"][0]==34892)) // lossless JPEG (used in DNG files)
+	//  "16,16,16" for "DSC06873.ARW"
+	if(img["t262"][0]==32803 || (img["t259"][0]==7 && img["t262"][0]==34892) || img["t258"].join(",")=="16,16,16") // lossless JPEG (used in DNG files)
 	{
 		var bps = img["t258"][0];//, dcdr = new LosslessJpegDecoder();
 		//var time = Date.now();
@@ -1141,7 +1143,7 @@ UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w, fo)
 		var bit =0;
 		if(fo==1) bit = (data[boff>>>3]>>>(7-(boff&7)))&1;
 		if(fo==2) bit = (data[boff>>>3]>>>(  (boff&7)))&1;
-		boff++;  wrd+=bit;
+		boff++;  wrd+=bit;  if(wrd.length>100) return 1;  // error, probably G3
 		if(mode=="H")
 		{
 			if(U._lens[clr][wrd]!=null)
@@ -1164,6 +1166,7 @@ UTIF.decode._decodeG4 = function(data, off, slen, tgt, toff, w, fo)
 		}
 		//if(wrd.length>150) {  log(wrd);  break;  throw "e";  }
 	}
+	return 0;
 }
 
 UTIF.decode._findDiff = function(line, x, clr) {  for(var i=0; i<line.length; i+=2) if(line[i]>=x && line[i+1]==clr)  return line[i];  }
