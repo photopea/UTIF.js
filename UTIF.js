@@ -525,6 +525,37 @@ UTIF.decode._decompress = function(img,ifds, data, off, len, cmpr, tgt, toff, fo
                         }
                     }
                 } 
+				else if(RW2_Format == 2) {
+					var PIXELS_PER_GROUP = 10;
+					var BYTES_PER_GROUP  = 16; // 10 × 12 bits = 120 bits = 15 bytes, +1 skip
+
+					var dataPos = off; // current byte position in `data`
+					var bitBuf  = 0; // accumulated bits (LSB-aligned, up to 12)
+					var bitsFed = 0; // how many valid bits are currently in bitBuf
+
+					for (var row = 0; row < rawHeight; row++) {
+						bitBuf  = 0;
+						bitsFed = 0;
+
+						for (var col = 0; col < rawWidth; col++) {
+							while (bitsFed < 12) {
+								bitBuf |= data[dataPos++] << bitsFed;
+								bitsFed += 8;
+							}
+
+							result[toff+row * rawWidth + col] = bitBuf & 0xFFF;
+							bitBuf  >>>= 12;
+							bitsFed  -= 12;
+
+							if ((col % PIXELS_PER_GROUP) === (PIXELS_PER_GROUP - 1)) {
+								// bitsFed should be 0 here; reset defensively and skip.
+								bitBuf  = 0;
+								bitsFed = 0;
+								dataPos++; // skip the padding byte
+							}
+						}
+					}
+				}
                 else throw RW2_Format;
             }
 
@@ -1459,8 +1490,9 @@ UTIF.toRGBA8 = function(out, scl)
 		
 		for(var y=0; y<h; y++) {
 			var off = y*bpl, io = y*w;
-			if(bps== 1) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>3)])>>(7-  (i&7)))&1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
-			if(bps== 2) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>2)])>>(6-2*(i&3)))&3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
+			if(bps== 1) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>3)])>>(7-  (i&7)))& 1;   img[qi]=img[qi+1]=img[qi+2]=(px)*255;  img[qi+3]=255;    }
+			if(bps== 2) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>2)])>>(6-2*(i&3)))& 3;   img[qi]=img[qi+1]=img[qi+2]=(px)* 85;  img[qi+3]=255;    }
+			if(bps== 4) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=((data[off+(i>>1)])>>(4-4*(i&1)))&15;   img[qi]=img[qi+1]=img[qi+2]=(px)* 17;  img[qi+3]=255;    }
 			if(bps== 8) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, px=data[off+i*smpls];  img[qi]=img[qi+1]=img[qi+2]=    px;  img[qi+3]=255;    }  // "smpls" needed for newJPEG compression (RGB output) - "jpg7/download.tif"
 			if(bps==16) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=off+2*i*smpls, px=(data[o+1]<<8)|data[o];  img[qi]=img[qi+1]=img[qi+2]= Math.min(255,~~(px*scl));  img[qi+3]=(smpls==2 ? data[o+2] : 255);    } // ladoga.tif
 			if(bps==32) for(var i=0; i<w; i++) {  var qi=(io+i)<<2, o=(off>>>2)+i, px=f32[o];  img[qi]=img[qi+1]=img[qi+2]= ~~(0.5+255*px);  img[qi+3]=255;    }
