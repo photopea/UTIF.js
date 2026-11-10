@@ -164,12 +164,24 @@ UTIF.decodeImage = function(buff, img, ifds)
 		var tx = Math.floor((img.width  + tw - 1) / tw);
 		var ty = Math.floor((img.height + th - 1) / th);
 		var tbuff = new Uint8Array(Math.ceil(tw*th*bipp/8)|0);
-		console.log("====", tx,ty);
+		console.log("====", tx,ty, spp);
 		for(var y=0; y<ty; y++)
 			for(var x=0; x<tx; x++)
 			{
-				var i = y*tx+x;  tbuff.fill(0);
-				UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, tbuff, 0, fo,tw,th);
+				tbuff.fill(0);
+				if(pco==2) {
+					for(var j=0; j<spp; j++) {
+						var i = (tx*ty)*j +y*tx+x;
+						UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, tbuff, j*tw*th, fo,tw,th);
+					}
+					var ob = tbuff;  tbuff=tbuff.slice(0);
+					for(var j=0; j<spp; j++)
+						for(var k=0; k<tw*th; k++) tbuff[k*spp+j] = ob[j*tw*th+k];
+				}
+				else {
+					var i = y*tx+x;  
+					UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, tbuff, 0, fo,tw,th);
+				}
 				// Might be required for 7 too. Need to check
 				if (cmpr==6) bytes = tbuff;
 				else UTIF._copyTile(tbuff, Math.ceil(tw*bipp/8)|0, th, bytes, Math.ceil(img.width*bipp/8)|0, img.height, Math.ceil(x*tw*bipp/8)|0, y*th);
@@ -179,7 +191,7 @@ UTIF.decodeImage = function(buff, img, ifds)
 	else	// stripped
 	{
 		if(soff==null) return;
-		var rps = img["t278"] ? img["t278"][0] : img.height;   rps = Math.min(rps, img.height);
+		var rps = img["t278"] ? img["t278"][0] : img.height;   rps = Math.min(rps, img.height);  // rows per strip
 		//console.log("====", img.width, rps);
 		for(var i=0; i<soff.length; i++)
 		{
@@ -188,11 +200,12 @@ UTIF.decodeImage = function(buff, img, ifds)
 				UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, bytes, toff, fo,img.width,rps);
 			}
 			else {
-				var ta = new Uint8Array(img.width*rps);
+				var ta = new Uint8Array(img.width*rps*(bps>>>3));
 				UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, ta,0, fo,img.width,rps);
 				var scnt = Math.ceil(soff.length/3);  // strip count
 				var toff = (i%scnt)*img.width*rps*3, j=Math.floor(i/scnt);
-				for(var k=0; k<ta.length; k++) bytes[toff+k*3+j] = ta[k];
+				if(bps==16) for(var k=0; k<ta.length; k++) {  bytes[(toff+k*3+j)*2] = ta[k*2];  bytes[(toff+k*3+j)*2+1] = ta[k*2+1];  }
+				else        for(var k=0; k<ta.length; k++) bytes[toff+k*3+j] = ta[k];
 			}
 			bilen += bipl * rps;
 		}
