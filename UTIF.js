@@ -172,11 +172,13 @@ UTIF.decodeImage = function(buff, img, ifds)
 				if(pco==2) {
 					for(var j=0; j<spp; j++) {
 						var i = (tx*ty)*j +y*tx+x;
-						UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, tbuff, j*tw*th, fo,tw,th);
+						UTIF.decode._decompress(img,ifds, data, soff[i], bcnt[i], cmpr, tbuff, j*tw*th*(bps>>>3), fo,tw,th);
 					}
 					var ob = tbuff;  tbuff=tbuff.slice(0);
-					for(var j=0; j<spp; j++)
-						for(var k=0; k<tw*th; k++) tbuff[k*spp+j] = ob[j*tw*th+k];
+					for(var j=0; j<spp; j++) {
+						if(bps==16) for(var k=0; k<tw*th; k++) {  tbuff[(k*spp+j)*2] = ob[(j*tw*th+k)*2];  tbuff[(k*spp+j)*2+1] = ob[(j*tw*th+k)*2+1];  }
+						else        for(var k=0; k<tw*th; k++) tbuff[k*spp+j] = ob[j*tw*th+k];
+					}
 				}
 				else {
 					var i = y*tx+x;  
